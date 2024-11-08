@@ -1,111 +1,153 @@
-# CHESS: Contextual Harnessing for Efficient SQL Synthesis
+# CHESS-Plus: Enhanced Contextual SQL Synthesis with Chat & Visualization
 
-This repository contains the code and data for the paper "CHESS: Contextual Harnessing for Efficient SQL Synthesis."
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Framework: LangChain](https://img.shields.io/badge/framework-langchain-green.svg)](https://python.langchain.com/)
 
-Utilizing large language models (LLMs) for transforming natural language questions into SQL queries (text-to-SQL) is a promising yet challenging approach, particularly when applied to real-world databases with complex and extensive schemas. In particular, effectively incorporating data catalogs and database values for SQL generation remains an obstacle, leading to suboptimal solutions. In CHESS, we address this problem by proposing a new pipeline that effectively retrieves relevant data and context, selects an efficient schema, and synthesizes correct and efficient SQL queries. To increase retrieval precision, our pipeline introduces a hierarchical retrieval method leveraging model-generated keywords, locality-sensitive hashing indexing, and vector databases. Additionally, we have developed an adaptive schema pruning technique that adjusts based on the complexity of the problem and the model’s context size. Our approach generalizes to both frontier proprietary models like GPT-4 and open-source models such as Llama-3-70B. Through a series of ablation studies, we demonstrate the effectiveness of each component of our pipeline and its impact on the end-to-end performance. Our method achieves new state-of-the-art performance on the cross-domain challenging BIRD dataset.
+CHESS-Plus extends the CHESS (Contextual Harnessing for Efficient SQL Synthesis) project with interactive chat capabilities, dynamic visualizations, and enhanced query processing. It transforms natural language into SQL queries while providing rich context, visual insights, and conversational interactions.
 
-## CHESS
+## 🌟 Key Features
 
-![Example Image](images/full_pipeline.png)
+- **All Original CHESS Features**
+  - Efficient SQL query synthesis from natural language
+  - Contextual schema understanding
+  - Intelligent database catalog utilization
+  - Support for complex, multi-table queries
+  - Compatible with multiple LLM providers
 
-## Setting up the Environment
+- **New Enhanced Capabilities**
+  - 💬 Interactive Chat Interface
+    - Persistent chat sessions
+    - Context-aware conversations
+    - Query refinement through dialogue
+    - Historical query reference
+
+  - 📊 Dynamic Visualizations
+    - Automatic visualization suggestions
+    - Interactive React-based charts
+    - Multiple visualization types
+    - Custom visualization options
+
+  - 🎯 Intent-Based Processing
+    - Dynamic pipeline configuration
+    - Query intent analysis
+    - Optimized processing paths
+    - Context-aware responses
+
+## 🚀 Quick Start
 
 1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/chess-plus.git
+   cd chess-plus
+   ```
 
-2. **Create a `.env` file** in the root directory of the repository and add the following items to the file:
-    ```
-    OPENAI_API_KEY=<your_openai_api_key>
-    DB_ROOT_PATH=<path_to_the_root_directory_of_the_repository> # e.g., "./data/dev"
-    ```
+2. **Create and activate virtual environment**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
-3. **Install the required packages** using the following command:
-    ```
-    pip install -r requirements.txt
-    ```
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## Preprocessing
+4. **Set up environment variables**
+   ```bash
+   cp env.example .env
+   # Edit .env with your configuration
+   ```
 
-To effectively retrieve the database catalogs and find the most similar database values to a specific question, preprocess the databases by following these steps:
+5. **Preprocess the databases**
+   ```bash
+   sh run/run_preprocess.sh
+   ```
 
-1. **Update the `run/run_preprocess.py` file** as follows:
-    ```python
-    db_root_directory="data/dev/dev_databases"  # UPDATE THIS WITH THE PATH TO THE DATABASES
-    db_id="all"
-    ```
+6. **Start the interactive interface**
+   ```bash
+   python src/interface.py
+   ```
 
-2. **Run the preprocessing script**:
-    ```
-    sh run/run_preprocess.sh
-    ```
+## 💻 Usage Examples
 
-    This will create the minhash, LSH, and vector databases for each of the databases in the specified directory.
+### Basic Query with Chat
+```python
+from chess_plus import SQLInterface
 
-## Running the Code
+interface = SQLInterface()
+session = interface.create_session(db_id="financial")
 
-After preprocessing the databases, generate the SQL queries for the BIRD dataset by following these steps:
+# Ask a question
+response = session.query(
+    "What were the total sales in 2023 by quarter?",
+    include_viz=True
+)
 
-1. **Update the `run/run_main.sh` file** as follows:
-    ```bash
-    mode='test'  # Update this with the mode you want to run
-    data_path="./data/dev/dev.json"  # UPDATE THIS WITH THE PATH TO THE TEST DATASET
-    ```
+# Follow-up question using context
+response = session.query(
+    "How does that compare to 2022?",
+    reference_previous=True
+)
+```
 
-2. **Deploy the finetuned model**:
+### Custom Visualization
+```python
+from chess_plus.visualization import VisualizationEngine
 
-   Follow the instructions below to deploy the finetuned model with an OpenAI-compatible API on a single A100 GPU server with PyTorch version 2.1 and CUDA 11.8.0:
+viz_engine = VisualizationEngine()
+custom_viz = viz_engine.create(
+    data=response.results,
+    viz_type="bar_chart",
+    options={
+        "title": "Quarterly Sales Comparison",
+        "x_label": "Quarter",
+        "y_label": "Total Sales"
+    }
+)
+```
 
-   1. Install the required package:
-       ```
-       pip install vllm==0.3.3
-       ```
-
-   2. Update and install `tmux`:
-       ```
-       apt update
-       apt install tmux
-       ```
-
-   3. Start a `tmux` session:
-       ```
-       tmux
-       ```
-
-   4. Run the model server:
-       ```
-       python -m vllm.entrypoints.openai.api_server --model AI4DS/NL2SQL_DeepSeek_33B --load-format safetensors --dtype bfloat16 --max-model-len 8192
-       ```
-
-   5. Update the server URI in the `run_main.sh` file for the "candidate_generation" node as follows:
-       ```json
-       "candidate_generation": {
-           "engine": "'${engine6}'",
-           "temperature": 0.0,
-           "base_uri": "https://<server_URI>",  # Put the server URI here without /v1
-           "sampling_count": 1
-       }
-       ```
-
-3. **Run the main script**:
-    ```
-    sh run/run_main.sh
-    ```
-
-This structured guide will help you set up the environment, preprocess the data, and run the code for SQL synthesis efficiently.
-
-# Sub-sampled Development Set (SDS)
-
-The sub-sampled development set (SDS) is a subset of the BIRD dataset that contains 10% of samples from each database. The SDS is used to evaluate the performance of the method for ablation studies. The SDS is available in the `sub_sampled_bird_dev_set.json`.
-
-# Support other LLMs
-
-To serve your own LLM or any other LLM, you should modify the def get_llm_chain(engine, temperature, base_uri=None) function and add your own LLM in run/langchain_utils.py. This will allow you to serve your own LLM.
-
-
-# Citation
-
-If you find this repository helpful, please cite the following paper:
+## 🏗️ Architecture
 
 ```
+chess-plus/
+├── src/
+│   ├── chat/          # Chat system components
+│   ├── visualization/ # Visualization engine
+│   ├── pipeline/      # Enhanced CHESS pipeline
+│   └── interface.py   # Main interface
+├── templates/         # Prompt templates
+└── chat_sessions/    # Session storage
+```
+
+## 📊 Supported Visualizations
+
+- Bar Charts
+- Line Charts
+- Scatter Plots
+- Histograms
+- Pie Charts
+- Heat Maps
+- Box Plots
+- Area Charts
+
+## 🛠️ Configuration
+
+CHESS-Plus can be configured through both environment variables and runtime settings. Key configuration areas include:
+
+- LLM Provider Selection
+- Chat Context Window Size
+- Visualization Defaults
+- Pipeline Optimization Settings
+- Database Connection Parameters
+
+See `config.example.yaml` for detailed configuration options.
+
+## 📝 Citation
+
+If you use CHESS-Plus in your research, please cite:
+
+```bibtex
 @article{talaei2024chess,
   title={CHESS: Contextual Harnessing for Efficient SQL Synthesis},
   author={Talaei, Shayan and Pourreza, Mohammadreza and Chang, Yu-Chen and Mirhoseini, Azalia and Saberi, Amin},
@@ -113,3 +155,28 @@ If you find this repository helpful, please cite the following paper:
   year={2024}
 }
 ```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on how to submit pull requests, report issues, and contribute to the project.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- The original CHESS project team
+- All contributors and maintainers
+- The open-source NLP and database communities
+
+## 📞 Contact
+
+For questions and support:
+- Create an issue in the GitHub repository
+- Contact the maintainers at [email]
+- Join our [Discord/Slack] community
+
+---
+
+For more detailed information, check out our [Documentation](docs/README.md).
