@@ -47,6 +47,7 @@ class PipelineManager:
         self.column_selection = pipeline_setup.get("column_selection", {})
         self.candidate_generation = pipeline_setup.get("candidate_generation", {})
         self.revision = pipeline_setup.get("revision", {})
+        self.response_generation = pipeline_setup.get("response_generation", {})
     
     def get_prompt_engine_parser(self, **kwargs: Any) -> Tuple[Any, Any, Any]:
         """

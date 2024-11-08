@@ -58,7 +58,10 @@ def _get_prompt_template(template_name: str, **kwargs: Any) -> HumanMessagePromp
         "column_selection": {"input_variables": ["HINT", "QUESTION"], "partial_variables": {"DATABASE_SCHEMA": kwargs.get("schema_string", "")}},
         "candidate_generation": {"input_variables": ["HINT", "QUESTION"], "partial_variables": {"DATABASE_SCHEMA": kwargs.get("schema_string", "")}},
         "finetuned_candidate_generation": {"input_variables": ["HINT", "QUESTION"], "partial_variables": {"DATABASE_SCHEMA": kwargs.get("schema_string", "")}},
-        "revision": {"input_variables": ["SQL", "QUESTION", "MISSING_ENTITIES", "EVIDENCE", "QUERY_RESULT"], "partial_variables": {"DATABASE_SCHEMA": kwargs.get("schema_string", "")}}
+        "revision": {"input_variables": ["SQL", "QUESTION", "MISSING_ENTITIES", "EVIDENCE", "QUERY_RESULT"], "partial_variables": {"DATABASE_SCHEMA": kwargs.get("schema_string", "")}},
+        "response_generation": {
+            "input_variables": ["QUESTION", "SQL", "RESULTS"]
+        }
     }
 
     if template_name not in template_configs:

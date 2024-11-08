@@ -10,6 +10,7 @@ from pipeline.column_selection import column_selection
 from pipeline.candidate_generation import candidate_generation
 from pipeline.revision import revision
 from pipeline.evaluation import evaluation
+from pipeline.response_generation import response_generation
 import logging
 
 ### Graph State ###

@@ -93,6 +93,12 @@ class SQLRevisionOutput(BaseModel):
     chain_of_thought_reasoning: str = Field(description="Your thought process on how you arrived at the final SQL query.")
     revised_SQL: str = Field(description="The revised SQL query in a single string.")
 
+class ResponseGenerationOutput(BaseModel):
+    """Model for response generation output."""
+    chain_of_thought_reasoning: str = Field(description="Your step-by-step reasoning process")
+    response: str = Field(description="Your natural language response to the question")
+
+
 def get_parser(parser_name: str) -> BaseOutputParser:
     """
     Returns the appropriate parser based on the provided parser name.
@@ -114,6 +120,7 @@ def get_parser(parser_name: str) -> BaseOutputParser:
         "candidate_generation": lambda: JsonOutputParser(pydantic_object=SQLGenerationOutput),
         "finetuned_candidate_generation": MarkDownOutputParser,
         "revision": lambda: JsonOutputParser(pydantic_object=SQLRevisionOutput),
+        "response_generation": lambda: JsonOutputParser(pydantic_object=ResponseGenerationOutput),
     }
 
     if parser_name not in parser_configs:
@@ -123,3 +130,4 @@ def get_parser(parser_name: str) -> BaseOutputParser:
     logging.info(f"Retrieving parser for: {parser_name}")
     parser = parser_configs[parser_name]() if callable(parser_configs[parser_name]) else parser_configs[parser_name]
     return parser
+
