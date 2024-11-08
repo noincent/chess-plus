@@ -9,9 +9,9 @@ Each configuration includes a constructor, parameters, and an optional preproces
 """
 
 ENGINE_CONFIGS: Dict[str, Dict[str, Any]] = {
-    "gemini-pro": {
+    "gemini-1.5-flash": {
         "constructor": ChatGoogleGenerativeAI,
-        "params": {"model": "gemini-pro", "temperature": 0, "convert_system_message_to_human": True},
+        "params": {"model": "gemini-1.5-flash", "temperature": 0, 'google_api_key': 'AIzaSyA4glf0oVR_v1qMO5p7t94qrbKAc5KMp_s', "convert_system_message_to_human": True},
         "preprocess": lambda x: x.to_messages()
     },
     "gemini-1.5-pro-latest": {
@@ -19,9 +19,9 @@ ENGINE_CONFIGS: Dict[str, Dict[str, Any]] = {
         "params": {"model": "gemini-1.5-pro-latest", "temperature": 0, "convert_system_message_to_human": True},
         "preprocess": lambda x: x.to_messages()
     },
-    "gpt-3.5-turbo-0125": {
+    "gpt-4o-mini": {
         "constructor": ChatOpenAI,
-        "params": {"model": "gpt-3.5-turbo-0125", "temperature": 0}
+        "params": {"model": "gpt-4o-mini", "temperature": 0}
     },
     "gpt-3.5-turbo-instruct": {
         "constructor": ChatOpenAI,
@@ -39,9 +39,9 @@ ENGINE_CONFIGS: Dict[str, Dict[str, Any]] = {
         "constructor": ChatOpenAI,
         "params": {"model": "gpt-4-turbo", "temperature": 0}
     },
-    "claude-3-opus-20240229": {
+    "claude-3-5-sonnet-20240620": {
         "constructor": ChatAnthropic,
-        "params": {"model": "claude-3-opus-20240229", "temperature": 0}
+        "params": {"model": "claude-3-5-sonnet-20240620", "temperature": 0}
     },
     "finetuned_nl2sql": {
         "constructor": ChatOpenAI,

@@ -1,6 +1,6 @@
 data_mode='dev' # Options: 'dev', 'train' 
 
-data_path="./data/dev/dev.json" # UPDATE THIS WITH THE PATH TO THE TARGET DATASET
+data_path="./data/dev/fin.json" # UPDATE THIS WITH THE PATH TO THE TARGET DATASET
 
 pipeline_nodes='keyword_extraction+entity_retrieval+context_retrieval+column_filtering+table_selection+column_selection+candidate_generation+revision+evaluation'
 checkpoint_nodes=''
@@ -27,10 +27,10 @@ table_selection_mode='ask_model' # Options: 'corrects', 'ask_model'
 
 column_selection_mode='ask_model' # Options: 'corrects', 'ask_model'
 
-engine1='gemini-pro'
-engine2='gpt-3.5-turbo-0125'
+engine1='gemini-1.5-flash'
+engine2='gpt-4o-mini'
 engine3='gpt-4-turbo'
-engine4='claude-3-opus-20240229'
+engine4='claude-3-5-sonnet-20240620'
 engine5='gemini-1.5-pro-latest'
 engine6='finetuned_nl2sql'
 engine7='meta-llama/Meta-Llama-3-70B-Instruct'
@@ -58,26 +58,26 @@ pipeline_setup='{
     },
     "table_selection": {
         "mode": "'${table_selection_mode}'",
-        "engine": "'${engine3}'",
+        "engine": "'${engine2}'",
         "temperature": 0.0,
         "base_uri": "",
         "sampling_count": 1
     },
     "column_selection": {
         "mode": "'${column_selection_mode}'",
-        "engine": "'${engine3}'",
+        "engine": "'${engine4}'",
         "temperature": 0.0,
         "base_uri": "",
         "sampling_count": 1
     },
     "candidate_generation": {
-        "engine": "'${engine3}'",
+        "engine": "'${engine4}'",
         "temperature": 0.0,
         "base_uri": "",
         "sampling_count": 1
     },
     "revision": {
-        "engine": "'${engine3}'",
+        "engine": "'${engine4}'",
         "temperature": 0.0,
         "base_uri": "",
         "sampling_count": 1
