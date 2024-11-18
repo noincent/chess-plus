@@ -83,3 +83,4 @@ def build_pipeline(pipeline_nodes: str) -> Callable:
     app = builder.workflow.compile()
     logging.info("Pipeline built and compiled successfully")
     return app
+

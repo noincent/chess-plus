@@ -1,149 +1,96 @@
-# CHESS-Plus: Enhanced Contextual SQL Synthesis with Chat & Visualization
+# CHESS: Contextual Harnessing for Efficient SQL Synthesis
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Framework: LangChain](https://img.shields.io/badge/framework-langchain-green.svg)](https://python.langchain.com/)
+This repository contains the code and data for the paper "CHESS: Contextual Harnessing for Efficient SQL Synthesis."
 
-CHESS-Plus extends the CHESS (Contextual Harnessing for Efficient SQL Synthesis) project with interactive chat capabilities, dynamic visualizations, and enhanced query processing. It transforms natural language into SQL queries while providing rich context, visual insights, and conversational interactions.
+Translating natural language questions into SQL queries, known as text-to-SQL, is a long-standing research problem. Effective text-to-SQL synthesis can become very challenging due to:
+- (i) The extensive size of database catalogs (descriptions of tables and their columns) and database values,
+- (ii) Reasoning over large database schemas,
+- (iii) Ensuring the functional validity of the generated queries,
+- (iv) Navigating the ambiguities of natural language questions.
 
-## 🌟 Key Features
+We introduce **CHESS**, a Large Language Model (LLM) based multi-agent framework for efficient and scalable SQL synthesis, comprising four specialized agents, each targeting one of the aforementioned challenges:
 
-- **All Original CHESS Features**
-  - Efficient SQL query synthesis from natural language
-  - Contextual schema understanding
-  - Intelligent database catalog utilization
-  - Support for complex, multi-table queries
-  - Compatible with multiple LLM providers
+1. **Information Retriever (IR)**: Extracts relevant data.
+2. **Schema Selector (SS)**: Prunes large schemas.
+3. **Candidate Generator (CG)**: Generates high-quality candidates and refines queries iteratively.
+4. **Unit Tester (UT)**: Validates queries through LLM-based natural language unit tests.
 
-- **New Enhanced Capabilities**
-  - 💬 Interactive Chat Interface
-    - Persistent chat sessions
-    - Context-aware conversations
-    - Query refinement through dialogue
-    - Historical query reference
+Our framework offers configurable features that adapt to various deployment constraints:
 
-  - 📊 Dynamic Visualizations
-    - Automatic visualization suggestions
-    - Interactive React-based charts
-    - Multiple visualization types
-    - Custom visualization options
+### Key Features
 
-  - 🎯 Intent-Based Processing
-    - Dynamic pipeline configuration
-    - Query intent analysis
-    - Optimized processing paths
-    - Context-aware responses
+- **Industrial-Scale Database Support**: Using the Schema Selector agent, CHESS efficiently narrows down very large database schemas into manageable sub-schemas, boosting system accuracy by approximately 2% and reducing LLM token usage by 5x.
+- **Privacy-Preserving Performance**: Among methods using open-source models, CHESS achieves state-of-the-art performance, providing a high-performing, privacy-preserving system suitable for industrial deployment.
+- **Scalability**: In settings with high computational budgets, CHESS reaches 71.10% accuracy on the BIRD test set, within 2% of the leading proprietary method, while reducing LLM calls by approximately 83%.
 
-## 🚀 Quick Start
+## CHESS
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/chess-plus.git
-   cd chess-plus
-   ```
+![CHESS Framework](images/chess.jpg)
 
-2. **Create and activate virtual environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+## Setting up the Environment
 
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+1. **Clone the repository**:
+    ```bash
+    git clone https://github.com/yourusername/CHESS.git
+    cd CHESS
+    ```
 
-4. **Set up environment variables**
-   ```bash
-   cp env.example .env
-   # Edit .env with your configuration
-   ```
+2. **Create a `.env` file** in the root directory and add the following configuration:
+    ```bash
+    DATA_MODE="dev"
+    DATA_PATH="./data/dev/dev.json"
+    DB_ROOT_DIRECTORY="./data/dev/dev_databases"
+    DATA_TABLES_PATH="./data/dev/dev_tables.json"
+    INDEX_SERVER_HOST='localhost'
+    INDEX_SERVER_PORT=12345
 
-5. **Preprocess the databases**
-   ```bash
-   sh run/run_preprocess.sh
-   ```
+    OPENAI_API_KEY=
+    GCP_PROJECT=''
+    GCP_REGION='us-central1'
+    GCP_CREDENTIALS=''
+    GOOGLE_CLOUD_PROJECT=''
+    ```
 
-6. **Start the interactive interface**
-   ```bash
-   python src/interface.py
-   ```
+3. **Install required packages**:
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-## 💻 Usage Examples
+## Preprocessing
 
-### Basic Query with Chat
-```python
-from chess_plus import SQLInterface
+To retrieve database catalogs and find the most similar database values to a question, preprocess the databases:
 
-interface = SQLInterface()
-session = interface.create_session(db_id="financial")
+1. **Run the preprocessing script**:
+    ```bash
+    sh run/run_preprocess.sh
+    ```
 
-# Ask a question
-response = session.query(
-    "What were the total sales in 2023 by quarter?",
-    include_viz=True
-)
+    This will create the minhash, LSH, and vector databases for each of the databases in the specified directory.
 
-# Follow-up question using context
-response = session.query(
-    "How does that compare to 2022?",
-    reference_previous=True
-)
-```
+## Running the Code
 
-### Custom Visualization
-```python
-from chess_plus.visualization import VisualizationEngine
+After preprocessing the databases, generate SQL queries for the BIRD dataset by choosing a configuration:
 
-viz_engine = VisualizationEngine()
-custom_viz = viz_engine.create(
-    data=response.results,
-    viz_type="bar_chart",
-    options={
-        "title": "Quarterly Sales Comparison",
-        "x_label": "Quarter",
-        "y_label": "Total Sales"
-    }
-)
-```
+1. **Run the main script**:
+    ```bash
+    sh run/run_main_ir_cg_ut.sh
+    ```
 
-## 🏗️ Architecture
+    or
 
-```
-chess-plus/
-├── src/
-│   ├── chat/          # Chat system components
-│   ├── visualization/ # Visualization engine
-│   ├── pipeline/      # Enhanced CHESS pipeline
-│   └── interface.py   # Main interface
-├── templates/         # Prompt templates
-└── chat_sessions/    # Session storage
-```
+    ```bash
+    sh run/run_main_ir_ss_ch.sh
+    ```
 
-## 📊 Supported Visualizations
+## Sub-sampled Development Set (SDS)
 
-- Bar Charts
-- Line Charts
-- Scatter Plots
-- Histograms
-- Pie Charts
-- Heat Maps
-- Box Plots
-- Area Charts
+The sub-sampled development set (SDS) is a subset of the BIRD dataset with 10% of samples from each database. It is used for ablation studies and is available in `sub_sampled_bird_dev_set.json`.
 
-## 🛠️ Configuration
+## Supporting Other LLMs
 
-CHESS-Plus can be configured through both environment variables and runtime settings. Key configuration areas include:
+To use your own LLM, modify the `get_llm_chain(engine, temperature, base_uri=None)` function and add your LLM in `run/langchain_utils.py`.
 
-- LLM Provider Selection
-- Chat Context Window Size
-- Visualization Defaults
-- Pipeline Optimization Settings
-- Database Connection Parameters
-
-See `config.example.yaml` for detailed configuration options.
-
-## 📝 Citation
+## Citation
 
 If you use CHESS-Plus in your research, please cite:
 
@@ -155,28 +102,3 @@ If you use CHESS-Plus in your research, please cite:
   year={2024}
 }
 ```
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on how to submit pull requests, report issues, and contribute to the project.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- The original CHESS project team
-- All contributors and maintainers
-- The open-source NLP and database communities
-
-## 📞 Contact
-
-For questions and support:
-- Create an issue in the GitHub repository
-- Contact the maintainers at [email]
-- Join our [Discord/Slack] community
-
----
-
-For more detailed information, check out our [Documentation](docs/README.md).
