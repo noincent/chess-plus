@@ -1,18 +1,31 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+from typing import Dict, Any, TypeVar, Union
 import re
 import time
 
 from runner.logger import Logger
 from workflow.system_state import SystemState
+from workflow.chat_state import ChatSystemState
+
+StateType = TypeVar('StateType', SystemState, ChatSystemState)
 
 class Tool(ABC):
     
     def __init__(self):
         self.tool_name = camel_to_snake(self.__class__.__name__)
     
-    def __call__(self, state: SystemState) -> SystemState:
-        Logger().log(f"---START: {self.tool_name}---")
+    def __call__(self, state: StateType) -> StateType:
+        try:
+            Logger().log(f"---START: {self.tool_name}---")
+        except ValueError:
+            # If Logger isn't initialized, initialize it with state info
+            Logger(
+                db_id=state.task.db_id,
+                question_id=str(state.task.question_id),
+                result_directory="results/interactive"  # fallback directory
+            )
+            Logger().log(f"---START: {self.tool_name}---")
+        
         start_time = time.time()
         state.executing_tool = self.tool_name
         try:
@@ -34,10 +47,10 @@ class Tool(ABC):
         return state
     
     @abstractmethod
-    def _run(self, state: SystemState) -> Dict:
+    def _run(self, state: StateType) -> Dict:
         pass
     
-    def _log_run(self, state: SystemState, run_status: Dict[str, Any]):
+    def _log_run(self, state: StateType, run_status: Dict[str, Any]):
         run_log = {"tool_name": self.tool_name}
         if run_status["status"] == "success":
             run_log.update(self._get_updates(state))
@@ -46,7 +59,7 @@ class Tool(ABC):
         Logger().dump_history_to_file(state.execution_history)
     
     @abstractmethod
-    def _get_updates(self, state: SystemState) -> Dict:
+    def _get_updates(self, state: StateType) -> Dict:
         pass
     
 def camel_to_snake(name):

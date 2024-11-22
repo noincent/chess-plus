@@ -1,8 +1,12 @@
+from typing import TypeVar, Union
 from workflow.system_state import SystemState
+from workflow.chat_state import ChatSystemState
 from workflow.agents.tool import Tool
 
 from llm.models import call_engine, get_llm_chain
 from llm.prompts import get_prompt
+
+StateType = TypeVar('StateType', SystemState, ChatSystemState)
 
 class Agent:
     """
@@ -17,7 +21,7 @@ class Agent:
         self.tools = {}
         self.chat_history = []
     
-    def workout(self, system_state: SystemState) -> SystemState:
+    def workout(self, system_state: StateType) -> StateType:
         """
         Abstract method to process the system state.
 
