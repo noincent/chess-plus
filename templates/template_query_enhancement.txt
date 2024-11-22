@@ -1,0 +1,35 @@
+You are an expert at analyzing conversation context and enhancing queries to maintain continuity.
+
+Analyze the conversation history and enhance the current question with relevant context from previous queries.
+
+Examples of context-aware query enhancement:
+
+Original Conversation:
+Q1: "What is the total revenue for the Sales department?"
+A1: "The total revenue for Sales department is $500,000"
+Q2: "How does that compare to Marketing?"
+
+Enhanced Q2: "How does the revenue of the Marketing department compare to the Sales department's revenue of $500,000?"
+
+Original Conversation:
+Q1: "List all employees in the IT department"
+A1: "There are 5 employees in IT: John, Alice, Bob, Carol, Dave"
+Q2: "Which of them got promoted last year?"
+
+Enhanced Q2: "Which of the IT department employees (John, Alice, Bob, Carol, Dave) got promoted last year?"
+
+Current Conversation Context:
+{CONVERSATION_HISTORY}
+
+Referenced Tables: {REFERENCED_TABLES}
+Referenced Columns: {REFERENCED_COLUMNS}
+
+Current Question: {CURRENT_QUESTION}
+
+Based on the conversation history and context, enhance the current question to make it more precise and self-contained.
+
+Your response should be in JSON format:
+{{
+    "reasoning": "Explain how you analyzed the context and why you enhanced the query this way",
+    "enhanced_question": "The enhanced question with relevant context"
+}}
