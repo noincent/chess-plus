@@ -29,25 +29,23 @@ class RetrieveContext(Tool):
             state (SystemState): The current system state.
         """
         
+        # Get conversation summary if available
+        chat_context = ""
+        if hasattr(state, 'chat_context') and state.chat_context:
+            summary = state.chat_context.get_conversation_summary(max_entries=3)
+            chat_context = "\n".join(summary.get('conversation', []))
+        
         retrieved_columns = self._find_most_similar_columns(
             question=state.task.question,
             evidence=state.task.evidence,
             keywords=state.keywords,
+            chat_context=chat_context,
             top_k=self.top_k
         )
         
         state.schema_with_descriptions = self._format_retrieved_descriptions(retrieved_columns)
 
-        # try:
-        #     path = os.path.join(os.getenv("DB_ROOT_DIRECTORY"), state.task.db_id)
-        #     state.schema_with_descriptions = load_tables_description(path, use_value_description=True)
-        # except Exception as e:
-        #     logging.error(f"Error loading tables description: {e}")
-        #     state.schema_with_descriptions = {}
-
-    ### Context similarity ###
-    
-    def _find_most_similar_columns(self, question: str, evidence: str, keywords: List[str], top_k: int) -> Dict[str, Dict[str, Dict[str, str]]]:
+    def _find_most_similar_columns(self, question: str, evidence: str, keywords: List[str], chat_context: str, top_k: int) -> Dict[str, Dict[str, Dict[str, str]]]:
         """
         Finds the most similar columns based on the question and evidence.
 
@@ -55,6 +53,7 @@ class RetrieveContext(Tool):
             question (str): The question string.
             evidence (str): The evidence string.
             keywords (List[str]): The list of keywords.
+            chat_context (str): The chat context string.
             top_k (int): The number of top similar columns to retrieve.
 
         Returns:

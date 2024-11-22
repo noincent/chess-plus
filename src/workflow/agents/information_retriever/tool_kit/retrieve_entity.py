@@ -44,14 +44,24 @@ class RetrieveEntity(Tool):
         Args:
             state (SystemState): The current system state.
         """
+        # Get chat context if available
+        chat_context = ""
+        if hasattr(state, 'chat_context') and state.chat_context:
+            summary = state.chat_context.get_conversation_summary()
+            chat_context = "\n".join(summary.get('conversation', []))
         
-        state.similar_columns = self._get_similar_columns(keywords=state.keywords, question=state.task.question, hint=state.task.evidence)
+        state.similar_columns = self._get_similar_columns(
+            keywords=state.keywords, 
+            question=state.task.question, 
+            hint=state.task.evidence, 
+            chat_context=chat_context
+        )
         
         state.schema_with_examples = self._get_similar_entities(keywords=state.keywords)
 
     ### Column name similarity ###
     
-    def _get_similar_columns(self, keywords: List[str], question: str, hint: str) -> Dict[str, List[str]]:
+    def _get_similar_columns(self, keywords: List[str], question: str, hint: str, chat_context: str) -> Dict[str, List[str]]:
         """
         Finds columns similar to given keywords based on question and hint.
 
@@ -59,12 +69,13 @@ class RetrieveEntity(Tool):
             keywords (List[str]): The list of keywords.
             question (str): The question string.
             hint (str): The hint string.
+            chat_context (str): The chat context string.
 
         Returns:
             Dict[str, List[str]]: A dictionary mapping table names to lists of similar column names.
         """
         selected_columns = {}
-        similar_columns = self._get_similar_column_names(keywords=keywords, question=question, hint=hint)
+        similar_columns = self._get_similar_column_names(keywords=keywords, question=question, hint=hint, chat_context=chat_context)
         for table_name, column_name in similar_columns:
             if table_name not in selected_columns:
                 selected_columns[table_name] = []
@@ -128,7 +139,7 @@ class RetrieveEntity(Tool):
         similarity = difflib.SequenceMatcher(None, column_name, keyword).ratio()
         return similarity >= threshold
 
-    def _get_similar_column_names(self, keywords: str, question: str, hint: str) -> List[Tuple[str, str]]:
+    def _get_similar_column_names(self, keywords: str, question: str, hint: str, chat_context: str) -> List[Tuple[str, str]]:
         """
         Finds column names similar to given keywords based on question and hint.
 
@@ -136,6 +147,7 @@ class RetrieveEntity(Tool):
             keywords (str): The list of keywords.
             question (str): The question string.
             hint (str): The hint string.
+            chat_context (str): The chat context string.
 
         Returns:
             List[Tuple[str, str]]: A list of tuples containing table and column names.
@@ -159,7 +171,7 @@ class RetrieveEntity(Tool):
 
         # Prepare the list of strings to embed
         column_strings = [f"`{table}`.`{column}`" for table, columns in schema.items() for column in columns]
-        question_hint_string = f"{question} {hint}"
+        question_hint_string = f"{question} {hint} {chat_context}"
 
         to_embed_strings.extend(column_strings)
         to_embed_strings.append(question_hint_string)
