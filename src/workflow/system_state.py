@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from runner.task import Task
 from runner.database_manager import DatabaseManager
@@ -32,6 +32,9 @@ class SystemState(BaseModel):
     SQL_meta_infos: Dict[str, List[SQLMetaInfo]] = {}
     unit_tests: Dict[str, List[str]] = {}
     errors: Dict[str, str] = {}
+    response_data: Dict[str, Any] = {}
+    
+    query_result: Optional[Dict[str, Any]] = None
     
     def add_columns_to_tentative_schema(self, selected_columns: Dict[str, List[str]]) -> None:
         """
@@ -174,3 +177,29 @@ class SystemState(BaseModel):
         for i, feedback in enumerate(feedbacks):
             feedback_string += f"--> {i+1}. {feedback}\n"
         return feedback_string
+    
+    def get_latest_execution_result(self) -> Optional[List[Dict[str, Any]]]:
+        """Get the most recent SQL execution result."""
+        for step in reversed(self.execution_history):
+            if step.get("tool_name") == "sql_execution":
+                return step.get("execution_result")
+        return None
+
+    def get_latest_sql_query(self) -> Optional[str]:
+        """Get the most recent SQL query."""
+        for step in reversed(self.execution_history):
+            if step.get("tool_name") == "sql_execution":
+                return step.get("sql_query")
+        return None
+
+    def update_query_result(self, result: Dict[str, Any]) -> None:
+        """Update the query result in the state."""
+        self.query_result = result
+        # Also add to execution history for consistency
+        self.execution_history.append({
+            "tool_name": "sql_execution",
+            "sql_query": result.get("sql_query"),
+            "results": result.get("results"),
+            "status": result.get("status"),
+            "error": result.get("error")
+        })

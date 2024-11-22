@@ -3,19 +3,23 @@ from pydantic import BaseModel
 
 class Task(BaseModel):
     """
-    Represents a task with question and database details.
-
+    Represents a task to be processed by the system.
+    
     Attributes:
-        question_id (int): The unique identifier for the question.
-        db_id (str): The database identifier.
-        question (str): The question text.
-        evidence (str): Supporting evidence for the question.
-        SQL (Optional[str]): The SQL query associated with the task, if any.
-        difficulty (Optional[str]): The difficulty level of the task, if specified.
+        question_id (str): Unique identifier for the question
+        db_id (str): Database identifier
+        question (str): The question to be processed
+        evidence (str): Supporting evidence for the task
+        SQL (Optional[str]): SQL query if available
+        difficulty (Optional[str]): Difficulty level of the task
+        original_question (Optional[str]): Original question before context enhancement
+        context_reasoning (Optional[str]): Reasoning for context-based modifications
     """
-    question_id: int
+    question_id: str
     db_id: str
     question: str
-    evidence: str
+    evidence: str = ""
     SQL: Optional[str] = None
     difficulty: Optional[str] = None
+    original_question: Optional[str] = None
+    context_reasoning: Optional[str] = None

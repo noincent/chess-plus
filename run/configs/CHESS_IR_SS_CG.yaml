@@ -1,5 +1,19 @@
 setting_name: CHESS_IR_SS_CG
 
+
+# Chat-specific settings
+chat_settings:
+  memory:
+    window_size: 10
+    relevance_threshold: 0.7
+  context:
+    max_history_messages: 50
+    include_sql_history: true
+  response:
+    style: conversational
+    include_context: true
+
+
 team_agents:
   information_retriever:
     engine: 'gpt-4o-mini'
@@ -51,6 +65,18 @@ team_agents:
               temperature: 0.01
             parser_name: 'generate_candidate_gemini_markdown_cot'
             sampling_count: 1
+
+  response_generator:
+    name: "Response Generator"
+    task: "Generate natural language responses for database query results"
+    engine: "gpt-4o-mini"
+    tools:
+      generate_response:
+        engine_config:
+          engine_name: "gpt-4o-mini"
+          temperature: 0.0
+        template_name: "response_generation"
+        parser_name: "response_generation"
 
       revise:
         template_name: 'revise_one'

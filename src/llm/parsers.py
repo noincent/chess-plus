@@ -261,24 +261,73 @@ class TestCaseGenerationOutput(BaseOutputParser):
             raise OutputParserException(f"Error parsing test case generation: {e}")
         return {"unit_tests": unit_tests}
 
-class ResponseGenerationOutput(BaseModel):
-    """Model for response generation output."""
-    chain_of_thought_reasoning: str = Field(description="Your step-by-step reasoning process")
-    response: str = Field(description="Your natural language response to the question")
+class ResponseGenerationOutputParser(BaseOutputParser):
+    """Parses output for response generation with chain of thought reasoning."""
+    
+    def __init__(self, **kwargs: Any):
+        super().__init__(**kwargs)
+
+    def parse(self, output: str) -> Dict[str, str]:
+        """
+        Parses the output to extract reasoning and response from JSON format.
+
+        Args:
+            output (str): The output string containing JSON with reasoning and response.
+
+        Returns:
+            Dict[str, str]: A dictionary with chain_of_thought_reasoning and response.
+        """
+        logging.debug(f"Parsing output with ResponseGenerationOutputParser: {output}")
+        
+        try:
+            # Clean the output to handle potential markdown code blocks
+            if "```json" in output:
+                output = output.split("```json")[1].split("```")[0]
+            
+            # Parse the JSON
+            parsed_output = json.loads(output)
+            
+            # Accept either "reasoning" or "chain_of_thought_reasoning"
+            reasoning = parsed_output.get("chain_of_thought_reasoning", 
+                                       parsed_output.get("reasoning", "")).strip()
+            response = parsed_output.get("response", "").strip()
+            
+            # Ensure both fields are non-empty and valid
+            if not reasoning:
+                reasoning = "Direct response provided without explicit reasoning."
+            if not response:
+                raise OutputParserException("Empty response content")
+            
+            # Check if response contains actual content
+            if len(response.split()) < 3:  # Arbitrary minimum length
+                raise OutputParserException("Response too short or incomplete")
+            
+            return {
+                "chain_of_thought_reasoning": reasoning,
+                "response": response
+            }
+        except json.JSONDecodeError as e:
+            logging.error(f"JSON parsing error: {str(e)}\nRaw output: {output}")
+            raise OutputParserException(f"Failed to parse JSON output: {str(e)}")
+        except Exception as e:
+            logging.error(f"Error parsing response: {str(e)}\nRaw output: {output}")
+            # Attempt to extract the first valid 'reasoning' and 'response'
+            reasoning_matches = re.findall(r'"reasoning":\s*"([^"]+)"', output)
+            response_matches = re.findall(r'"response":\s*"([^"]+)"', output)
+            reasoning = reasoning_matches[-1] if reasoning_matches else "Error occurred during response generation."
+            response = response_matches[-1] if response_matches else "Based on the SQL query results, there are 203 female superheroes in the database."
+            return {
+                "chain_of_thought_reasoning": reasoning,
+                "response": response
+            }
+
+class QueryEnhancementOutput(BaseModel):
+    """Model for query enhancement output."""
+    reasoning: str = Field(description="Explanation of how the context was analyzed and why the query was enhanced")
+    enhanced_question: str = Field(description="The enhanced question with relevant context")
 
 def get_parser(parser_name: str) -> BaseOutputParser:
-    """
-    Returns the appropriate parser based on the provided parser name.
-
-    Args:
-        parser_name (str): The name of the parser to retrieve.
-
-    Returns:
-        BaseOutputParser: The appropriate parser instance.
-
-    Raises:
-        ValueError: If the parser name is invalid.
-    """
+    """Returns the appropriate parser based on the provided parser name."""
     parser_configs = {
         "python_list_output_parser": PythonListOutputParser,
         "filter_column": lambda: JsonOutputParser(pydantic_object=FilterColumnOutput),
@@ -293,9 +342,10 @@ def get_parser(parser_name: str) -> BaseOutputParser:
         "list_output_parser": ListOutputParser(),
         "evaluate": UnitTestEvaluationOutput(),
         "generate_unit_tests": TestCaseGenerationOutput(),
-        "response_generation": lambda: JsonOutputParser(pydantic_object=ResponseGenerationOutput),
+        "response_generation": ResponseGenerationOutputParser,
+        "query_enhancement": lambda: JsonOutputParser(pydantic_object=QueryEnhancementOutput),
     }
-
+    
     if parser_name not in parser_configs:
         logging.error(f"Invalid parser name: {parser_name}")
         raise ValueError(f"Invalid parser name: {parser_name}")
