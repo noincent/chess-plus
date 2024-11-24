@@ -1,31 +1,30 @@
-# CHESS: Contextual Harnessing for Efficient SQL Synthesis
+# CHESS+: Enhanced Contextual SQL Synthesis with Chat Capabilities
 
-This repository contains the code and data for the paper "CHESS: Contextual Harnessing for Efficient SQL Synthesis."
+This repository contains an enhanced version of CHESS (Contextual Harnessing for Efficient SQL Synthesis), extending it with interactive chat capabilities and additional components.
 
-Translating natural language questions into SQL queries, known as text-to-SQL, is a long-standing research problem. Effective text-to-SQL synthesis can become very challenging due to:
-- (i) The extensive size of database catalogs (descriptions of tables and their columns) and database values,
-- (ii) Reasoning over large database schemas,
-- (iii) Ensuring the functional validity of the generated queries,
-- (iv) Navigating the ambiguities of natural language questions.
+## Original CHESS Framework
+This project builds upon the original CHESS framework, which addresses text-to-SQL translation through four specialized agents:
 
-We introduce **CHESS**, a Large Language Model (LLM) based multi-agent framework for efficient and scalable SQL synthesis, comprising four specialized agents, each targeting one of the aforementioned challenges:
+1. **Information Retriever (IR)**: Extracts relevant data
+2. **Schema Selector (SS)**: Prunes large schemas
+3. **Candidate Generator (CG)**: Generates high-quality candidates
+4. **Unit Tester (UT)**: Validates queries through LLM-based testing
 
-1. **Information Retriever (IR)**: Extracts relevant data.
-2. **Schema Selector (SS)**: Prunes large schemas.
-3. **Candidate Generator (CG)**: Generates high-quality candidates and refines queries iteratively.
-4. **Unit Tester (UT)**: Validates queries through LLM-based natural language unit tests.
+## New Features
 
-Our framework offers configurable features that adapt to various deployment constraints:
+### Interactive Chat Capabilities
+The enhanced version introduces interactive chat functionality through new specialized components:
 
-### Key Features
+1. **Chat Context Analyzer**: Understands user intent and conversation flow
+2. **Response Generator**: Produces natural language responses
+3. **SQL Executor**: Manages query execution and result formatting
+4. **Enhanced Information Retriever**: Improved keyword extraction and context management
 
-- **Industrial-Scale Database Support**: Using the Schema Selector agent, CHESS efficiently narrows down very large database schemas into manageable sub-schemas, boosting system accuracy by approximately 2% and reducing LLM token usage by 5x.
-- **Privacy-Preserving Performance**: Among methods using open-source models, CHESS achieves state-of-the-art performance, providing a high-performing, privacy-preserving system suitable for industrial deployment.
-- **Scalability**: In settings with high computational budgets, CHESS reaches 71.10% accuracy on the BIRD test set, within 2% of the leading proprietary method, while reducing LLM calls by approximately 83%.
-
-## CHESS
-
-![CHESS Framework](images/chess.jpg)
+### Key Enhancements
+- **Interactive Sessions**: Maintain context across multiple queries
+- **Natural Conversations**: More intuitive interaction with the SQL generation system
+- **Result Formatting**: Clean presentation of query results
+- **Context-Aware Responses**: Improved understanding of follow-up questions
 
 ## Setting up the Environment
 
@@ -35,7 +34,7 @@ Our framework offers configurable features that adapt to various deployment cons
     cd CHESS
     ```
 
-2. **Create a `.env` file** in the root directory and add the following configuration:
+2. **Create a `.env` file** in the root directory with your configuration:
     ```bash
     DATA_MODE="dev"
     DATA_PATH="./data/dev/dev.json"
@@ -90,9 +89,25 @@ The sub-sampled development set (SDS) is a subset of the BIRD dataset with 10% o
 
 To use your own LLM, modify the `get_llm_chain(engine, temperature, base_uri=None)` function and add your LLM in `run/langchain_utils.py`.
 
-## Citation
+## Using Chat Features
 
-If you use CHESS-Plus in your research, please cite:
+To interact with the system using chat:
+
+1. **Start a chat session**:
+    ```bash
+    python interface.py --mode chat
+    ```
+
+2. **Ask questions naturally**, for example:
+    - "Show me all employees in the Sales department"
+    - "How many of them were hired last year?"
+    - "What's the average salary?"
+
+The system will maintain context across questions and provide formatted responses.
+
+## Attribution
+
+This project is based on the original CHESS framework. If you use this enhanced version in your research, please cite both this repository and the original CHESS paper:
 
 ```bibtex
 @article{talaei2024chess,
