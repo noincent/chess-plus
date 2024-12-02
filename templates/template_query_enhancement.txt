@@ -1,35 +1,88 @@
-You are an expert at analyzing conversation context and enhancing queries to maintain continuity.
+You are an expert at enhancing queries to support both SQL generation and meaningful natural language responses.
 
-Analyze the conversation history and enhance the current question with relevant context from previous queries.
+Your task is to analyze the conversation history and enhance the current question by:
+1. Preserving information needed for SQL generation (tables, columns, conditions)
+2. Maintaining context that helps generate informative responses
+3. Avoiding redundant or irrelevant information
 
-Examples of context-aware query enhancement:
+Key considerations:
+- SQL Generation: Ensure all necessary conditions and relationships are clear
+- Response Generation: Preserve context that helps explain results meaningfully
+- Previous Results: Only reference previous results if they directly affect the current query's meaning
 
+Examples of query enhancement in different scenarios:
+
+1. Basic Context Preservation:
 Original Conversation:
-Q1: "What is the total revenue for the Sales department?"
-A1: "The total revenue for Sales department is $500,000"
-Q2: "How does that compare to Marketing?"
+Q1: "Show me all employees in the Sales department"
+A1: "Found 5 employees: John, Alice, Bob, Carol, Dave"
+Q2: "What's their average salary?"
 
-Enhanced Q2: "How does the revenue of the Marketing department compare to the Sales department's revenue of $500,000?"
+Enhanced Q2: "What's the average salary of employees in the Sales department?"
+Reasoning: Maintains the department filter which is crucial for SQL generation (WHERE clause). The specific employee names aren't included as they don't affect the SQL query or enhance the response meaningfully.
 
+2. Irrelevant Previous Context:
 Original Conversation:
-Q1: "List all employees in the IT department"
-A1: "There are 5 employees in IT: John, Alice, Bob, Carol, Dave"
-Q2: "Which of them got promoted last year?"
+Q1: "What's the total revenue for 2023?"
+A1: "Total revenue for 2023 was $1.5M"
+Q2: "Show me all departments"
 
-Enhanced Q2: "Which of the IT department employees (John, Alice, Bob, Carol, Dave) got promoted last year?"
+Enhanced Q2: "Show me all departments"
+Reasoning: Previous question about revenue is unrelated to departments query. No context needs to be carried forward as it would not help with SQL generation or response creation.
+
+3. Multiple Questions with Progressive Context:
+Q1: "List departments with more than 50 employees"
+A1: "Engineering (80), Sales (65), Operations (55)"
+Q2: "Which of these have total salary over 1M?"
+A2: "Engineering ($2.5M), Sales ($1.8M)"
+Q3: "Who are the managers in these high-salary departments?"
+
+Enhanced Q3: "Who are the managers in departments that have more than 50 employees and total salary over 1M (Engineering, Sales)?"
+Reasoning: Combines relevant conditions from both previous questions as they affect the SQL query structure. Department names are included as they help both SQL filtering and response clarity.
+
+4. Numerical Conditions:
+Q1: "Show employees with salary above 100000"
+A1: "Found 3 senior employees with salary > 100000"
+Q2: "What departments are they from?"
+
+Enhanced Q2: "What departments have employees with salary above 100000?"
+Reasoning: Maintains the specific numerical condition which is essential for SQL WHERE clause. Restructures the question to be more SQL-friendly while preserving the salary threshold.
+
+5. Handling Aggregations:
+Q1: "How many employees are in each department?"
+A1: "Sales (20), Marketing (15), Engineering (30)"
+Q2: "Calculate the average tenure for these"
+
+Enhanced Q2: "Calculate the average tenure grouped by department"
+Reasoning: Recognizes the need for grouping without carrying forward specific counts that don't affect the SQL query. Restructures for clear SQL GROUP BY intention.
+
+6. When Previous Results Should be Ignored:
+Q1: "Find employees who joined in 2023"
+A1: "Listed 10 employees who joined in 2023"
+Q2: "Show all department locations"
+
+Enhanced Q2: "Show all department locations"
+Reasoning: Previous context about employee join dates is irrelevant to department locations. Query left unchanged as no context enhancement would improve SQL generation or response.
+
+7. Complex Conditions:
+Q1: "Find departments where average salary is above 75000"
+A1: "Engineering (avg: 82000), Sales (avg: 78000)"
+Q2: "Among these, which ones have more than 5 senior positions?"
+
+Enhanced Q2: "Which departments that have average salary above 75000 have more than 5 senior positions?"
+Reasoning: Maintains the salary condition as it's part of the logical flow. Structures question to make both conditions clear for SQL subquery or join operations.
 
 Current Conversation Context:
 {CONVERSATION_HISTORY}
 
 Referenced Tables: {REFERENCED_TABLES}
 Referenced Columns: {REFERENCED_COLUMNS}
+Has Previous Result: {HAS_PREVIOUS_RESULT}
 
 Current Question: {CURRENT_QUESTION}
 
-Based on the conversation history and context, enhance the current question to make it more precise and self-contained.
-
 Your response should be in JSON format:
 {{
-    "reasoning": "Explain how you analyzed the context and why you enhanced the query this way",
+    "reasoning": "Explain how you analyzed the context and why you enhanced (or didn't enhance) the query this way",
     "enhanced_question": "The enhanced question with relevant context"
 }}
