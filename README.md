@@ -105,6 +105,177 @@ To interact with the system using chat:
 
 The system will maintain context across questions and provide formatted responses.
 
+## Web Interface Integration
+
+CHESS+ provides a FastAPI-based web interface that allows easy integration with any frontend application. The web server exposes a RESTful API that handles natural language queries and returns SQL responses.
+
+### Starting the Web Server
+
+1. **Run the web server**:
+   ```bash
+   python web_interface.py
+   ```
+   The server will start on `http://0.0.0.0:8010`
+
+### API Endpoints
+
+#### POST /create_session
+Creates a new chat session.
+
+**Request Format**:
+```json
+{
+    "user_id": "unique_user_identifier",
+    "db_id": "optional_database_id"  // defaults to "wtl_employee_tracker"
+}
+```
+
+**Response Format**:
+```json
+{
+    "session_id": "generated_uuid",
+    "db_id": "database_id",
+    "user_id": "user_id"
+}
+```
+
+#### POST /generate
+Processes natural language queries using an existing session.
+
+**Request Format**:
+```json
+{
+    "prompt": "Your natural language query",
+    "session_id": "session_id_from_create_session"
+}
+```
+
+**Response Format**:
+```json
+{
+    "result": "Natural language response from CHESS"
+}
+```
+
+#### POST /end_session/{session_id}
+Explicitly ends a chat session.
+
+**Response Format**:
+```json
+{
+    "message": "Session ended successfully"
+}
+```
+
+### Testing with curl
+
+You can test the API directly using curl commands. First, install jq for better JSON formatting:
+```bash
+sudo apt install jq
+```
+
+Then run these commands in sequence:
+
+1. Create a new session:
+```bash
+curl -X POST http://localhost:8010/create_session \
+-H "Content-Type: application/json" \
+-d '{"user_id": "test_user", "db_id": "wtl_employee_tracker"}' | jq
+```
+
+2. Store the session ID (replace YOUR_SESSION_ID with the id from previous response):
+```bash
+export SESSION_ID="YOUR_SESSION_ID"
+```
+
+3. Make a query:
+```bash
+curl -X POST http://localhost:8010/generate \
+-H "Content-Type: application/json" \
+-d "{\"prompt\": \"Show me all employees\", \"session_id\": \"$SESSION_ID\"}" | jq
+```
+
+4. Make a follow-up query:
+```bash
+curl -X POST http://localhost:8010/generate \
+-H "Content-Type: application/json" \
+-d "{\"prompt\": \"How many of them are in sales?\", \"session_id\": \"$SESSION_ID\"}" | jq
+```
+
+5. End the session:
+```bash
+curl -X POST "http://localhost:8010/end_session/$SESSION_ID" | jq
+```
+
+### Frontend Integration Example
+
+```javascript
+// Example frontend usage
+async function chatWithCHESS() {
+    // Step 1: Create a new session
+    const sessionResponse = await fetch('http://localhost:8010/create_session', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            user_id: 'user123',
+            db_id: 'employee_db'
+        })
+    });
+    const { session_id } = await sessionResponse.json();
+
+    // Step 2: Use the session for queries
+    const queryResponse = await fetch('http://localhost:8010/generate', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            prompt: "Show me all employees in the sales department",
+            session_id: session_id
+        })
+    });
+    const result = await queryResponse.json();
+    console.log(result.result);
+
+    // Step 3: End the session when done
+    await fetch(`http://localhost:8010/end_session/${session_id}`, {
+        method: 'POST'
+    });
+}
+```
+
+### Session Management
+The web interface uses a session-based system to maintain conversation context:
+
+1. **Creating Sessions**: 
+   - Each conversation starts with a new session
+   - Sessions are unique even for the same user and database
+   - Use `/create_session` to start a fresh conversation
+
+2. **Using Sessions**:
+   - Include the `session_id` with each query
+   - Sessions maintain conversation context
+   - Invalid or expired sessions return 400 error
+
+3. **Ending Sessions**:
+   - Sessions can be explicitly ended using `/end_session`
+   - Start a new session to begin a fresh conversation
+
+### CORS Configuration
+The web interface has CORS enabled and allows:
+- All origins (`*`)
+- All methods
+- All headers
+- Credentials
+
+### Error Handling
+The API returns standard HTTP status codes:
+- `400`: Bad Request (invalid input or expired session)
+- `404`: Session not found (when ending session)
+- `500`: Internal Server Error
+
 ## Attribution
 
 This project is based on the original CHESS framework. If you use this enhanced version in your research, please cite both this repository and the original CHESS paper:
@@ -116,4 +287,3 @@ This project is based on the original CHESS framework. If you use this enhanced 
   journal={arXiv preprint arXiv:2405.16755},
   year={2024}
 }
-```
