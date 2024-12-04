@@ -46,7 +46,8 @@ class CHESSTeamBuilder:
         connections = [
             ("chat_context_analyzer", "information_retriever"),
             ("information_retriever", "candidate_generator"),
-            ("candidate_generator", "sql_executor"),
+            ("candidate_generator", "unit_tester"),
+            ("unit_tester", "sql_executor"),
             ("sql_executor", "response_generator"),
         ]
         self._add_connections(connections)

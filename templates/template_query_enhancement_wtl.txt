@@ -1,32 +1,109 @@
-** Instructions: **
+You are an expert at enhancing queries to support both SQL generation and meaningful natural language responses.
 
-Given the following question database schema, and candidate responses, generate a set of {UNIT_TEST_CAP} unit tests that would evaluate the correctness of SQL queries that would answer the question.
-Unit tests should be designed in a way that distinguish the candidate responses from each other.
+Your task is to analyze both:
+1. Conversation history to maintain relevant context
+2. Database schema and sample values to improve query clarity and accuracy
 
-- The unit tests should cover various aspects of the question and ensure comprehensive evaluation. 
-- Each unit test should be clearly stated and should include the expected outcome.
-- Each unit test should be designed in a way that it can distinguishes at lease two candidate responses from each other.
-- The unit test should be formatted like 'The answer SQL query should mention...', 'The answer SQL query should state...', 'The answer SQL query should use...', etc. followed by the expected outcome.
-- First think step by step how you can design the units tests to distinguish the candidate responses using the <Thinking> tags.
-- After the thinking process, provide the list of unit tests in the <Answer> tags.
+Enhancement priorities:
+1. Conversation Context:
+   - Preserve essential information for SQL generation
+   - Maintain context for meaningful responses
+   - Only reference relevant previous results
 
-VERY IMPORTANT:
-All of the unit tests should consider the logic of the SQL query do not consider the formatting of the output or output values.
+2. Schema-Based Improvements:
+   - Add missing table joins based on foreign key relationships
+   - Clarify ambiguous columns using example values
+   - Handle NULL values in critical columns
+   - Standardize date formats
+   - Consider both Chinese and English variations
+   - Handle common synonyms and terms based on sample data
 
-You are provided with different clusters of the canidate responses. Each cluster contains similar responses based on their results.
-You MUST generate test cases that can distinguish between the candidate responses in each cluster and the test case should promote the candiddate responses that you think are correct.
+3. Query Clarification:
+   - Resolve ambiguous terms using schema examples
+   - Add missing but implied conditions
+   - Standardize terminology to match database
+   - Handle potential typos based on similar values
+   - Consider bilingual variations in text searches
 
+Examples of query enhancement in different scenarios:
 
-Example of the output format:
-<Thinking> Your step by step reasoning here. </Thinking>
-<Answer>
-['The answer SQL query should mention...', 'The answer SQL query should state...', 'The answer SQL query should use...']
-</Answer>
+1. Employee Name Resolution:
+Original Question: "Find Shuran's projects"
+Sample Values: 
+- employee.name: ['杨舒然', '尹晓娟', '刘志娟']
+- employee.alias: ['Shuran', 'Fiona.Yin', 'Kelly']
 
-** Question: **
-Question: {QUESTION} (Hint: {HINT})
+Enhanced: "Find projects assigned to employee named Shuran (舒然) - checking both Chinese name and English alias"
+Reasoning: Uses sample values to add name variations and specifies correct columns to search.
 
-** Database Schema: **
+2. Department Hierarchy:
+Original: "Show design team members"
+Schema:
+- employee.department: ['战略内审中心', '设计管理部']
+- employee.subdepartment: ['内审组', '方案设计1组']
+
+Enhanced: "Show team members in the design department (设计管理部) or design subdepartments"
+Reasoning: Clarifies department hierarchy based on schema structure.
+
+3. Project Timeline Analysis:
+Original: "Show delayed BMW projects"
+Sample Values:
+- project.name: ['宝马汽车2024-2026年年框设计项目', 'BMW Series 2024']
+Foreign Keys:
+- project.team_id -> team.uuid
+
+Enhanced: "Show projects where name contains BMW or 宝马 and current_date > expected_completion_date, including team assignments"
+Reasoning: Adds bilingual variations and proper join information.
+
+4. Work Hour Calculations:
+Original: "Total hours by department"
+Schema Constraints:
+- work_hour.is_reversed: Boolean
+- work_hour.hour: DECIMAL(10,2)
+Foreign Keys:
+- work_hour.employee_id -> employee.uuid
+
+Enhanced: "Calculate total valid work hours (excluding reversed entries) grouped by department, including subdepartment rollup"
+Reasoning: Adds critical is_reversed condition and clarifies department hierarchy.
+
+5. Client Classification:
+Original: "List foreign clients"
+Sample Values:
+- client.background: ['外资', '国企', '私企']
+- client.company: ['Beijing Mercedes-Benz Sales Service Co., Ltd', 'None']
+
+Enhanced: "List clients where background is foreign investment (外资), including company names in both languages"
+Reasoning: Uses actual values to specify correct classification.
+
+6. Team Performance:
+Original: "Show CANAAN team efficiency"
+Sample Values:
+- team.name: ['CANAAN24004-BJ08', 'CANAAN24005-BJ08']
+Schema Relationships:
+- team -> team_assignment -> employee
+- team -> project
+
+Enhanced: "Calculate efficiency (revenue per valid work hour) for teams with names starting with 'CANAAN', including project and employee metrics"
+Reasoning: Uses sample values to specify team naming pattern and adds required joins.
+
+7. Date Range Queries:
+Original: "Q3 projects"
+Schema:
+- project.sign_date: DATE
+- project.expected_completion_date: DATE
+Sample Values:
+- '2024-09-23', '2024-09-29'
+
+Enhanced: "Find projects with sign_date between '2024-07-01' and '2024-09-30', handling NULL dates"
+Reasoning: Standardizes date format based on schema and handles NULL values.
+
+Current Conversation Context:
+{CONVERSATION_HISTORY}
+
+Database Schema Info:
+Referenced Tables: {REFERENCED_TABLES}
+Referenced Columns: {REFERENCED_COLUMNS}
+Database schema, valuse and foreign keys: ** Database Schema: **
 Tables in the database: client, project, team, employee, team_assignment, users, work_hour
 
 Schema for table 'client':
@@ -176,15 +253,10 @@ Table 'work_hour' has the following foreign key relationships:
  - Column 'employee_id' references 'employee' on column 'uuid'
  - Column 'project_id' references 'project' on column 'uuid'
 ----------------------------------------
+Current Question: {CURRENT_QUESTION}
 
-** Candidate Clusters: **
-{CANDIDATE_QUERIES}
-
-** Question: **
-Question: {QUESTION} (Hint: {HINT})
-
-** Output Format: **
-<Thinking> Your step by step reasoning here. </Thinking>
-<Answer>
-output should be only a list of strings (e.g. ['unit test #1', 'unit test #2', 'unit test #3']).
-</Answer>
+Your response should be in JSON format:
+{{
+    "reasoning": "Explain how you analyzed both context and schema to enhance the query",
+    "enhanced_question": "The enhanced question with relevant context and schema-based improvements"
+}}

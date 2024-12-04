@@ -16,19 +16,13 @@ class QueryEnhancement(ChatTool):
         self.parser_name = parser_name
         
     def _run(self, state: ChatSystemState) -> None:
-        """Enhance the query with contextual information."""
-        # For first question, set up initial state without context
-        if not state.chat_context or not state.chat_context.conversation_history:
-            state.task.original_question = state.task.question
-            state.task.context_reasoning = "First question in the session - no context available."
-            return
-        
-        # Prepare context for the LLM
+        """Enhance the query with or without contextual information."""
+        # Prepare request with focus on schema-based improvements
         request_kwargs = {
             "CURRENT_QUESTION": state.task.question,
-            "CONVERSATION_HISTORY": state.chat_context.get_conversation_summary(),
-            "REFERENCED_TABLES": list(state.chat_context.referenced_tables),
-            "REFERENCED_COLUMNS": list(state.chat_context.referenced_columns)
+            "CONVERSATION_HISTORY": state.chat_context.get_conversation_summary() if state.chat_context else "",
+            "REFERENCED_TABLES": list(state.chat_context.referenced_tables) if state.chat_context else [],
+            "REFERENCED_COLUMNS": list(state.chat_context.referenced_columns) if state.chat_context else []
         }
         
         # Call LLM to enhance query

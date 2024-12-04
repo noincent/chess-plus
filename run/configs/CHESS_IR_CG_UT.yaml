@@ -18,12 +18,12 @@ chat_settings:
 
 team_agents:
   chat_context_analyzer:
-    engine: 'gpt-4o-mini'
+    engine: 'gpt-4o'
     tools:
       query_enhancement:
-        template_name: 'query_enhancement'
+        template_name: 'query_enhancement_wtl'
         engine_config:
-          engine_name: 'gpt-4o-mini'
+          engine_name: 'gpt-4o'
           temperature: 0.0
         parser_name: 'query_enhancement'
         
@@ -45,18 +45,18 @@ team_agents:
     tools:
       generate_candidate:
         generator_configs:
-          - template_name: 'generate_candidate_one'
+          - template_name: 'generate_candidate_wtl'
             engine_config:
               engine_name: 'gpt-4o-mini'
               temperature: 0.5
             parser_name: 'generate_candidate_gemini_markdown_cot'
-            sampling_count: 2
-          - template_name: 'generate_candidate_two'
+            sampling_count: 5
+          - template_name: 'generate_candidate_wtl_two'
             engine_config:
               engine_name: 'gpt-4o-mini'
               temperature: 0.5
             parser_name: 'generate_candidate_gemini_markdown_cot'
-            sampling_count: 2
+            sampling_count: 5
 
       revise:
         template_name: 'revise_one'
@@ -79,22 +79,21 @@ team_agents:
           temperature: 0.0
         parser_name: 'response_generation'
 
+  unit_tester:
+    engine: 'gpt-4o-mini'
+    tools:
+      generate_unit_test:
+        template_name: 'generate_unit_tests'
+        engine_config:
+          engine_name: 'gpt-4o-mini'
+          temperature: 0.8
+        parser_name: 'generate_unit_tests'
+        unit_test_count: 5
+        sampling_count: 1
 
-  # unit_tester:
-  #   engine: 'gpt-4o-mini'
-  #   tools:
-  #     generate_unit_test:
-  #       template_name: 'generate_unit_tests'
-  #       engine_config:
-  #         engine_name: 'gpt-4o-mini'
-  #         temperature: 0.8
-  #       parser_name: 'generate_unit_tests'
-  #       unit_test_count: 20
-  #       sampling_count: 1
-
-  #     evaluate:
-  #       template_name: 'evaluate'
-  #       engine_config:
-  #         engine_name: 'gpt-4o-mini'
-  #         temperature: 0.0
-  #       parser_name: 'evaluate'
+      evaluate:
+        template_name: 'evaluate'
+        engine_config:
+          engine_name: 'gpt-4o-mini'
+          temperature: 0.0
+        parser_name: 'evaluate'
