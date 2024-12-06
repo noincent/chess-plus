@@ -8,6 +8,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from interface import CHESSInterface
+from threading import Lock
+import time
+import yaml
 
 # Add the src directory to Python path
 current_dir = Path(__file__).parent
@@ -26,40 +29,50 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Initialize CHESS interface
-chess_interface = CHESSInterface()
+# Store interfaces per user
+user_interfaces: Dict[str, CHESSInterface] = {}
+interfaces_lock = Lock()
 
 # Store active sessions
 active_sessions: Dict[str, str] = {}  # Maps frontend_session_id to chess_session_id
+sessions_lock = Lock()
+
+def get_user_interface(user_id: str) -> CHESSInterface:
+    """Get or create a CHESSInterface instance for a user."""
+    with interfaces_lock:
+        if user_id not in user_interfaces:
+            # Use the default config name but create a unique interface
+            user_interfaces[user_id] = CHESSInterface(
+                config_name="CHESS_IR_CG_UT",
+                db_mode='dev'
+            )
+        return user_interfaces[user_id]
 
 class SessionRequest(BaseModel):
-    db_id: str = 'wtl_employee_tracker'
+    db_id: str = "wtl_employee_tracker"  # Default database ID
     user_id: str
 
 class QueryRequest(BaseModel):
     prompt: str
     session_id: str  # Frontend must provide the session ID from /create_session
+    user_id: str = "default"  # Make user_id optional with a default value
 
 @app.post("/create_session")
 async def create_session(request: SessionRequest):
-    """
-    Create a new chat session.
-    
-    Args:
-        request (SessionRequest): Contains database ID and user ID
-    
-    Returns:
-        dict: Contains the new session ID
-    """
+    """Create a new chat session."""
     try:
         # Generate a unique session ID for the frontend
         frontend_session_id = str(uuid.uuid4())
         
+        # Get or create user's interface
+        interface = get_user_interface(request.user_id)
+        
         # Create a new CHESS session
-        chess_session_id = chess_interface.start_chat_session(request.db_id)
+        chess_session_id = interface.start_chat_session(request.db_id)
         
         # Store the mapping
-        active_sessions[frontend_session_id] = chess_session_id
+        with sessions_lock:
+            active_sessions[frontend_session_id] = chess_session_id
         
         return {
             "session_id": frontend_session_id,
@@ -72,32 +85,26 @@ async def create_session(request: SessionRequest):
 
 @app.post("/generate")
 async def query(request: QueryRequest):
-    """
-    Handle a query request.
-    
-    Args:
-        request (QueryRequest): The query request containing the prompt and session ID
-    
-    Returns:
-        dict: The response from CHESS
-    """
+    """Handle a query request."""
     try:
-        if request.session_id not in active_sessions:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid or expired session ID. Please create a new session."
-            )
-            
-        chess_session_id = active_sessions[request.session_id]
+        with sessions_lock:
+            if request.session_id not in active_sessions:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid or expired session ID. Please create a new session."
+                )
+            chess_session_id = active_sessions[request.session_id]
 
-        # Process the query using the CHESS interface
-        response = chess_interface.chat_query(
+        # Get the user's interface
+        interface = get_user_interface(request.user_id)
+
+        # Process the query using the user's interface
+        response = interface.chat_query(
             session_id=chess_session_id,
             question=request.prompt
         )
 
         return {"result": response}
-
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -110,10 +117,11 @@ async def end_session(session_id: str):
     """
     End a chat session explicitly.
     """
-    if session_id in active_sessions:
-        # Could add cleanup logic for the CHESS session here if needed
-        del active_sessions[session_id]
-        return {"message": "Session ended successfully"}
+    with sessions_lock:
+        if session_id in active_sessions:
+            # Could add cleanup logic for the CHESS session here if needed
+            del active_sessions[session_id]
+            return {"message": "Session ended successfully"}
     raise HTTPException(status_code=404, detail="Session not found")
 
 if __name__ == "__main__":

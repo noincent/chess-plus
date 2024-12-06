@@ -6,6 +6,7 @@ import uuid
 import logging
 from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
+from threading import Lock
 
 # Add the src directory to Python path
 current_dir = Path(__file__).parent
@@ -74,6 +75,9 @@ class CHESSInterface:
         except Exception as e:
             logging.error(f"Error building team: {e}")
             raise
+
+        # Add thread safety for session management
+        self._sessions_lock = Lock()
 
     def _setup_logging(self):
         """Set up logging configuration."""
@@ -188,12 +192,13 @@ class CHESSInterface:
         max_history = chat_settings.get('context', {}).get('max_history_messages', 50)
         
         # Create new session
-        self.active_sessions[session_id] = ChatSession(
-            session_id=session_id,
-            db_id=db_id,
-            window_size=window_size,
-            max_history=max_history
-        )
+        with self._sessions_lock:
+            self.active_sessions[session_id] = ChatSession(
+                session_id=session_id,
+                db_id=db_id,
+                window_size=window_size,
+                max_history=max_history
+            )
         
         return session_id
 
@@ -204,10 +209,11 @@ class CHESSInterface:
         Args:
             session_id (str): Session identifier
         """
-        if session_id in self.active_sessions:
-            session = self.active_sessions[session_id]
-            session.save(str(self.results_dir))
-            del self.active_sessions[session_id]
+        with self._sessions_lock:
+            if session_id in self.active_sessions:
+                session = self.active_sessions[session_id]
+                session.save(str(self.results_dir))
+                del self.active_sessions[session_id]
 
     def chat_query(self, session_id: str, question: str) -> Dict[str, Any]:
         """Process a chat query and return results."""
@@ -527,14 +533,15 @@ class CHESSInterface:
         Returns:
             List[Dict[str, Any]]: List of session summaries
         """
-        return [
-            {
-                "session_id": session_id,
-                "db_id": session.db_id,
-                "message_count": len(session.history.messages)
-            }
-            for session_id, session in self.active_sessions.items()
-        ]
+        with self._sessions_lock:
+            return [
+                {
+                    "session_id": session_id,
+                    "db_id": session.db_id,
+                    "message_count": len(session.history.messages)
+                }
+                for session_id, session in self.active_sessions.items()
+            ]
 
     def _get_session(self, session_id: str) -> ChatSession:
         """
@@ -549,10 +556,11 @@ class CHESSInterface:
         Raises:
             ValueError: If session ID is invalid
         """
-        if session_id not in self.active_sessions:
-            raise ValueError(f"Invalid session ID: {session_id}")
+        with self._sessions_lock:
+            if session_id not in self.active_sessions:
+                raise ValueError(f"Invalid session ID: {session_id}")
         
-        return self.active_sessions[session_id]
+            return self.active_sessions[session_id]
 
 def main():
     """Main function for command-line interface."""
