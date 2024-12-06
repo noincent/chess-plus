@@ -60,6 +60,13 @@ class CHESSInterface:
         self.response_generator = ResponseGenerator(response_generator_config)
         self.response_formatter = ResponseFormatter()
         
+        # Set number of workers
+        self.num_workers = self.config.get('num_workers', 1)
+        logging.info(f"Setting number of workers to: {self.num_workers}")
+        
+        # Add num_workers to config for RunManager
+        self.config['num_workers'] = self.num_workers
+        
         # Build the team
         try:
             self.team = build_team(self.config)

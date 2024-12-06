@@ -1,5 +1,7 @@
 setting_name: CHESS_IR_CG_UT
 
+# System settings
+num_workers: 5
 
 # Chat-specific settings
 enable_chat: true

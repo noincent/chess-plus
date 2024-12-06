@@ -96,7 +96,7 @@ async def query(request: QueryRequest):
             question=request.prompt
         )
 
-        return {"result": response["natural_language_response"]}
+        return {"result": response}
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

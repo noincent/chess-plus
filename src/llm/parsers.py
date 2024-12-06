@@ -3,11 +3,15 @@ import re
 import logging
 from ast import literal_eval
 from typing import Any, Dict, List, Tuple
+import threading
 
 from langchain_core.output_parsers.base import BaseOutputParser
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.exceptions import OutputParserException
+
+_parser_cache = {}
+_parser_lock = threading.Lock()
 
 class PythonListOutputParser(BaseOutputParser):
     """Parses output embedded in markdown code blocks containing Python lists."""
@@ -328,29 +332,31 @@ class QueryEnhancementOutput(BaseModel):
 
 def get_parser(parser_name: str) -> BaseOutputParser:
     """Returns the appropriate parser based on the provided parser name."""
-    parser_configs = {
-        "python_list_output_parser": PythonListOutputParser,
-        "filter_column": lambda: JsonOutputParser(pydantic_object=FilterColumnOutput),
-        "select_tables": lambda: JsonOutputParser(pydantic_object=SelectTablesOutputParser),
-        "select_columns": lambda: JsonOutputParser(pydantic_object=ColumnSelectionOutput),
-        "generate_candidate": lambda: JsonOutputParser(pydantic_object=GenerateCandidateOutput),
-        "generated_candidate_finetuned": GenerateCandidateFinetunedMarkDownParser(),
-        "revise": lambda: JsonOutputParser(pydantic_object=ReviseOutput),
-        "generate_candidate_gemini_markdown_cot": GenerateCandidateGeminiMarkDownParserCOT(),
-        "generate_candidate_gemini_cot": GeminiMarkDownOutputParserCOT(),
-        "revise_new": ReviseGeminiOutputParser(),
-        "list_output_parser": ListOutputParser(),
-        "evaluate": UnitTestEvaluationOutput(),
-        "generate_unit_tests": TestCaseGenerationOutput(),
-        "response_generation": ResponseGenerationOutputParser,
-        "query_enhancement": lambda: JsonOutputParser(pydantic_object=QueryEnhancementOutput),
-    }
+    if parser_name not in _parser_cache:
+        with _parser_lock:  # Only lock if parser needs to be created
+            if parser_name not in _parser_cache:  # Double-check pattern
+                parser_configs = {
+                    "python_list_output_parser": PythonListOutputParser,
+                    "filter_column": lambda: JsonOutputParser(pydantic_object=FilterColumnOutput),
+                    "select_tables": lambda: JsonOutputParser(pydantic_object=SelectTablesOutputParser),
+                    "select_columns": lambda: JsonOutputParser(pydantic_object=ColumnSelectionOutput),
+                    "generate_candidate": lambda: JsonOutputParser(pydantic_object=GenerateCandidateOutput),
+                    "generated_candidate_finetuned": GenerateCandidateFinetunedMarkDownParser(),
+                    "revise": lambda: JsonOutputParser(pydantic_object=ReviseOutput),
+                    "generate_candidate_gemini_markdown_cot": GenerateCandidateGeminiMarkDownParserCOT(),
+                    "generate_candidate_gemini_cot": GeminiMarkDownOutputParserCOT(),
+                    "revise_new": ReviseGeminiOutputParser(),
+                    "list_output_parser": ListOutputParser(),
+                    "evaluate": UnitTestEvaluationOutput(),
+                    "generate_unit_tests": TestCaseGenerationOutput(),
+                    "response_generation": ResponseGenerationOutputParser,
+                    "query_enhancement": lambda: JsonOutputParser(pydantic_object=QueryEnhancementOutput),
+                }
+                
+                if parser_name not in parser_configs:
+                    raise ValueError(f"Invalid parser name: {parser_name}")
+                
+                logging.info(f"Creating parser for: {parser_name}")
+                _parser_cache[parser_name] = parser_configs[parser_name]() if callable(parser_configs[parser_name]) else parser_configs[parser_name]
     
-    if parser_name not in parser_configs:
-        logging.error(f"Invalid parser name: {parser_name}")
-        raise ValueError(f"Invalid parser name: {parser_name}")
-
-    logging.info(f"Retrieving parser for: {parser_name}")
-    parser = parser_configs[parser_name]() if callable(parser_configs[parser_name]) else parser_configs[parser_name]
-    return parser
-
+    return _parser_cache[parser_name]

@@ -1,6 +1,8 @@
 import numpy as np
 import difflib
 from typing import List, Dict, Any, Tuple, Optional
+import concurrent.futures
+from functools import partial
 
 from langchain_openai import OpenAIEmbeddings
 from google.oauth2 import service_account
@@ -139,12 +141,12 @@ class RetrieveEntity(Tool):
         similarity = difflib.SequenceMatcher(None, column_name, keyword).ratio()
         return similarity >= threshold
 
-    def _get_similar_column_names(self, keywords: str, question: str, hint: str, chat_context: str) -> List[Tuple[str, str]]:
+    def _get_similar_column_names(self, keywords: List[str], question: str, hint: str, chat_context: str) -> List[Tuple[str, str]]:
         """
         Finds column names similar to given keywords based on question and hint.
 
         Args:
-            keywords (str): The list of keywords.
+            keywords (List[str]): The list of keywords.
             question (str): The question string.
             hint (str): The hint string.
             chat_context (str): The chat context string.
@@ -167,30 +169,45 @@ class RetrieveEntity(Tool):
                 potential_column_names.extend(part.strip() for part in keyword.split())
         schema = DatabaseManager().get_db_schema()
         
-        to_embed_strings = []
-
         # Prepare the list of strings to embed
         column_strings = [f"`{table}`.`{column}`" for table, columns in schema.items() for column in columns]
         question_hint_string = f"{question} {hint} {chat_context}"
 
-        to_embed_strings.extend(column_strings)
-        to_embed_strings.append(question_hint_string)
+        # Split column strings into batches for parallel processing
+        batch_size = 50
+        column_batches = [column_strings[i:i + batch_size] for i in range(0, len(column_strings), batch_size)]
 
-        # Get embeddings
-        embeddings = self.embedding_function.embed_documents(to_embed_strings)
+        # Process embeddings in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(column_batches), 4)) as executor:
+            batch_embeddings = list(executor.map(self.embedding_function.embed_documents, column_batches))
 
-        # Separate embeddings
-        column_embeddings = embeddings[:-1]  # All except the last one
-        question_hint_embedding = embeddings[-1]  # The last one
+        # Flatten the embeddings
+        column_embeddings = [embedding for batch in batch_embeddings for embedding in batch]
+        
+        # Get question-hint embedding
+        question_hint_embedding = self.embedding_function.embed_documents([question_hint_string])[0]
 
-        # Compute similarities
-        similar_column_names = []
-        for i, column_embedding in enumerate(column_embeddings):
-            table, column = column_strings[i].split('.')[0].strip('`'), column_strings[i].split('.')[1].strip('`')
-            for potential_column_name in potential_column_names:
-                if self._does_keyword_match_column(potential_column_name, column):
-                    similarity_score = np.dot(column_embedding, question_hint_embedding)
-                    similar_column_names.append((table, column, similarity_score))
+        # Process similarities in parallel
+        def process_column_batch(batch_data):
+            results = []
+            for i, column_embedding in batch_data:
+                table, column = column_strings[i].split('.')[0].strip('`'), column_strings[i].split('.')[1].strip('`')
+                for potential_column_name in potential_column_names:
+                    if self._does_keyword_match_column(potential_column_name, column):
+                        similarity_score = np.dot(column_embedding, question_hint_embedding)
+                        results.append((table, column, similarity_score))
+            return results
+
+        # Split work into batches
+        column_data = list(enumerate(column_embeddings))
+        batch_size = max(len(column_data) // 4, 1)
+        batches = [column_data[i:i + batch_size] for i in range(0, len(column_data), batch_size)]
+
+        # Process similarities in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            similar_column_names = []
+            for batch_results in executor.map(process_column_batch, batches):
+                similar_column_names.extend(batch_results)
 
         similar_column_names.sort(key=lambda x: x[2], reverse=True)
         table_column_pairs = list(set([(table, column) for table, column, _ in similar_column_names]))

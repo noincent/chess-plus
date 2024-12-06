@@ -1,4 +1,6 @@
 from typing import Dict
+import concurrent.futures
+from functools import partial
 
 from llm.models import async_llm_chain_call, get_llm_chain
 from llm.prompts import get_prompt
@@ -20,9 +22,67 @@ class Revise(Tool):
         self.parser_name = parser_name
         
 
+    def _process_batch(self, batch_data, state: SystemState):
+        """
+        Process a batch of SQL queries for revision.
+        
+        Args:
+            batch_data (list): List of (index, SQL_meta_info) tuples to process
+            state (SystemState): The current system state
+        """
+        request_list = []
+        for index, target_SQL_meta_info in batch_data:
+            try:
+                request_kwargs = {
+                    "DATABASE_SCHEMA": state.get_schema_string(schema_type="complete"),
+                    "QUESTION": state.task.question,
+                    "HINT": state.task.evidence,
+                    "QUERY": target_SQL_meta_info.SQL,
+                    "RESULT": self.get_formatted_execution_result(target_SQL_meta_info)
+                }
+                request_list.append(request_kwargs)
+            except Exception as e:
+                print(f"Error in Checker while creating request list: {e}")
+                continue
+
+        try:
+            # Create a prompt and engine for each request
+            prompts = [get_prompt(template_name=self.template_name) for _ in request_list]
+            engines = [get_llm_chain(**self.engine_config) for _ in request_list]
+            parser = get_parser(self.parser_name)
+            
+            # Process requests in parallel
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(request_list)) as executor:
+                futures = []
+                for prompt, engine, request in zip(prompts, engines, request_list):
+                    future = executor.submit(
+                        async_llm_chain_call,
+                        prompt=prompt,
+                        engine=engine,
+                        parser=parser,
+                        request_list=[request],
+                        step=f"{self.tool_name}_parallel"
+                    )
+                    futures.append(future)
+                
+                # Gather results
+                responses = []
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        result = future.result()
+                        responses.extend(result[0])
+                    except Exception as e:
+                        print(f"Error in parallel LLM call: {e}")
+                        continue
+                
+            return responses
+        except Exception as e:
+            print(f"Error in Checker while getting response: {e}")
+            return []
+
     def _run(self, state: SystemState):
         """
-        Executes the SQL revision process.
+        Executes the SQL revision process using parallel processing.
         
         Args:
             state (SystemState): The current system state.
@@ -33,13 +93,15 @@ class Revise(Tool):
         except Exception as e:
             print(f"Error in Checker: {e}")
             return
+
         if key_to_refine.startswith(self.tool_name):
             id = int(key_to_refine[len(self.tool_name)+1:])
             SQL_id = self.tool_name + "_" + str(id+1)
         else:
-            SQL_id = self.tool_name + "_1"  
+            SQL_id = self.tool_name + "_1"
         state.SQL_meta_infos[SQL_id] = []
-        request_list = []
+
+        # Mark queries that need fixing
         for SQL_meta_info in target_SQL_meta_infos:
             try:
                 execution_status = SQL_meta_info.execution_status
@@ -47,33 +109,22 @@ class Revise(Tool):
                     SQL_meta_info.need_fixing = True
             except Exception:
                 SQL_meta_info.need_fixing = True
+
         need_fixing_SQL_meta_infos = [(index, target_SQL_meta_info) for index, target_SQL_meta_info in enumerate(target_SQL_meta_infos) if target_SQL_meta_info.need_fixing]
-        for index, target_SQL_meta_info in need_fixing_SQL_meta_infos:   
-            try:            
-                request_kwargs = {
-                    "DATABASE_SCHEMA": state.get_schema_string(schema_type="complete"),
-                    "QUESTION": state.task.question,
-                    "HINT": state.task.evidence,
-                    "QUERY": target_SQL_meta_info.SQL  ,
-                    "RESULT": self.get_formatted_execution_result(target_SQL_meta_info)
-                }
-                request_list.append(request_kwargs)
-            except Exception as e:
-                print(f"Error in Checker while creating request list: {e}")
-                continue
-                
-        try:
-            response = async_llm_chain_call(
-                prompt=get_prompt(template_name=self.template_name),
-                engine=get_llm_chain(**self.engine_config),
-                parser=get_parser(self.parser_name),
-                request_list=request_list,
-                step=self.tool_name
-            )
-            response = [r[0] for r in response]
-        except Exception as e:
-            print(f"Error in Checker while getting response: {e}")
-            response = []
+        
+        # Split into batches for parallel processing
+        batch_size = 5  # Process 5 queries per batch
+        batches = [need_fixing_SQL_meta_infos[i:i + batch_size] for i in range(0, len(need_fixing_SQL_meta_infos), batch_size)]
+        
+        # Process batches in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(batches), 4)) as executor:
+            process_func = partial(self._process_batch, state=state)
+            all_responses = list(executor.map(process_func, batches))
+        
+        # Flatten responses
+        response = [item for sublist in all_responses for item in sublist]
+        
+        # Process results
         index = 0
         for target_SQL_meta_info in target_SQL_meta_infos:
             try:
@@ -93,12 +144,13 @@ class Revise(Tool):
                 refinement_response = {
                     "refined_sql_query": target_SQL_meta_info.SQL
                 }
+            
             if "refined_sql_query" in refinement_response:
                 if refinement_response["refined_sql_query"]:
                     state.SQL_meta_infos[SQL_id].append(SQLMetaInfo(**{
                         "SQL": refinement_response["refined_sql_query"]
-                    })) 
-
+                    }))
+                    
     def get_formatted_execution_result(self, target_SQL_meta_info: SQLMetaInfo) -> str:
         try:
             execution_result = target_SQL_meta_info.execution_result
@@ -144,5 +196,3 @@ class Revise(Tool):
             "refined_SQL_id": refined_SQL_id,
             "candidates": candidates
         }
-            
-    

@@ -106,6 +106,8 @@ Referenced Columns: {REFERENCED_COLUMNS}
 Database schema, valuse and foreign keys: ** Database Schema: **
 Tables in the database: client, project, team, employee, team_assignment, users, work_hour
 
+Tables in the database: client, project, team, employee, team_assignment, users, sqlite_sequence, work_hour
+
 Schema for table 'client':
 Columns:
  - uuid (TEXT), Primary Key
@@ -150,7 +152,7 @@ Sample unique values for each column:
  - expected_completion_date: None
  - revenue: 0, 3230000, 275000, 6800000, 800000
  - revenue_note: None
- - client_id: 0450995e-c275-4d2e-99c0-40e6803d2bc4, 0e3cf311-4f30-4d04-b69a-bdb51e7cb88c, 16b8afa8-74ca-492e-9823-a6a454fe738f, 18e49836-cc4b-40ba-81a2-adebf4c7fa0d, 1a317c2d-8236-49e8-9f58-94e887d8ef04
+ - client_id: 017143b5-285c-4a62-8ab0-bee690e6ac69, 0450995e-c275-4d2e-99c0-40e6803d2bc4, 0e3cf311-4f30-4d04-b69a-bdb51e7cb88c, 10463310-5df4-431f-b8c3-fb4d476d7afd, 10af67fe-c4b8-4a56-bc35-5c762afefe9d
 ----------------------------------------
 Schema for table 'team':
 Columns:
@@ -208,11 +210,21 @@ Sample unique values for each column:
  - employee_id: 0ac49b75-a8b3-11ef-b88d-30c9abb7563e, 80afbf80-a8b1-11ef-b88d-30c9abb7563e, 6d64aa1b-a6f0-11ef-b88d-30c9abb7563e, 6d64eae7-a6f0-11ef-b88d-30c9abb7563e, 6d6508d4-a6f0-11ef-b88d-30c9abb7563e
  - role: level_4, level_3, level_1
 ----------------------------------------
+Schema for table 'sqlite_sequence':
+Columns:
+ - name (), 
+ - seq (), 
+
+Sample unique values for each column:
+ - name: 
+ - seq: 
+----------------------------------------
 Schema for table 'work_hour':
 Columns:
  - uuid (CHAR(36)), Primary Key
  - is_reversed (BOOLEAN), 
  - task_description (TEXT), 
+ - stage (TEXT), 
  - is_standardized (BOOLEAN), 
  - project_id (CHAR(36)), 
  - employee_id (CHAR(36)), 
@@ -221,15 +233,16 @@ Columns:
  - end_date (DATE), 
 
 Sample unique values for each column:
- - uuid: 204abcf9-aad6-11ef-b3d9-30c9abb7563e, 204b6efa-aad6-11ef-b3d9-30c9abb7563e, 204bdcbd-aad6-11ef-b3d9-30c9abb7563e, 204c5a8c-aad6-11ef-b3d9-30c9abb7563e, 204cafb0-aad6-11ef-b3d9-30c9abb7563e
- - is_reversed: None, 0
- - task_description: 维修报价(2h), 维修报价（3h), 26号发招标文件，27号现场踏勘，29号答疑文件提交, 施工配合,客户新需求调整材料,补充效果图,材料表调整, 效果方案制作,内部方案沟通,材料选择及调整
- - is_standardized: None, 1
- - project_id: None, 50bf4327-a8a8-11ef-b88d-30c9abb7563e, 50c3cd26-a8a8-11ef-b88d-30c9abb7563e, 50c581d9-a8a8-11ef-b88d-30c9abb7563e, 50c68b62-a8a8-11ef-b88d-30c9abb7563e
- - employee_id: None, 6d64cd7c-a6f0-11ef-b88d-30c9abb7563e, 6d64eae7-a6f0-11ef-b88d-30c9abb7563e, 6d652b20-a6f0-11ef-b88d-30c9abb7563e, 6d654c1f-a6f0-11ef-b88d-30c9abb7563e
- - hour: 2, 3, 12, 13, 30
- - start_date: 9/23/2024, 2024-09-23
- - end_date: 9/29/2024, 2024-09-29
+ - uuid: 002ff591-83c6-4e6e-a18c-85346efd5153, 0045381f-4c0b-4d4d-b776-98f2d7cb0f1b, 005951a4-113b-408f-9acc-d2318a2f5f77, 00624498-b4db-4b85-b54d-f262154edc1e, 00644b1b-e69c-4a21-87a8-13344888efea
+ - is_reversed: None
+ - task_description: 结算阶段（6h）, , 金尚活动支持, 效果方案更新,平面方案更新,施工配合, 效果方案更新,扩初设计交底
+ - stage: None, 3. 施工阶段, 2. 设计阶段, 4. 竣工阶段, 1. 投标阶段
+ - is_standardized: None
+ - project_id: None, 50ff2c0c-a8a8-11ef-b88d-30c9abb7563e, 50d0e02d-a8a8-11ef-b88d-30c9abb7563e, 50ebf8bb-a8a8-11ef-b88d-30c9abb7563e, 50f2be6c-a8a8-11ef-b88d-30c9abb7563e
+ - employee_id: None, 6d6982df-a6f0-11ef-b88d-30c9abb7563e, 6d69f786-a6f0-11ef-b88d-30c9abb7563e, 6d69b4f4-a6f0-11ef-b88d-30c9abb7563e, 6d6a68a0-a6f0-11ef-b88d-30c9abb7563e
+ - hour: 6, 3, 80, 1, 43.5
+ - start_date: 2024-08-19, 2024-08-26, 2024-08-05, 2024-08-12, 2024-09-16
+ - end_date: 2024-08-25, 2024-09-01, 2024-08-11, 2024-08-18, 2024-09-22
 ----------------------------------------
 Table Connections (Foreign Keys):
 Table 'client' has no foreign key relationships.
@@ -248,6 +261,8 @@ Table 'team_assignment' has the following foreign key relationships:
 ----------------------------------------
 Table 'users' has the following foreign key relationships:
  - Column 'employee_id' references 'employee' on column 'uuid'
+----------------------------------------
+Table 'sqlite_sequence' has no foreign key relationships.
 ----------------------------------------
 Table 'work_hour' has the following foreign key relationships:
  - Column 'employee_id' references 'employee' on column 'uuid'

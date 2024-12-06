@@ -18,14 +18,22 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument('--data_mode', type=str, required=True, help="Mode of the data to be processed.")
     parser.add_argument('--data_path', type=str, required=True, help="Path to the data file.")
     parser.add_argument('--config', type=str, required=True, help="Path to the configuration file.")
-    parser.add_argument('--num_workers', type=int, default=1, help="Number of workers to use.")
+    parser.add_argument('--num_workers', type=int, help="Number of workers to use (overrides config value).")
     parser.add_argument('--log_level', type=str, default='warning', help="Logging level.")
     parser.add_argument('--pick_final_sql', type=bool, default=False, help="Pick the final SQL from the generated SQLs.")
     args = parser.parse_args()
 
     args.run_start_time = datetime.now().isoformat()
     with open(args.config, 'r') as file:
-        args.config=yaml.safe_load(file)
+        config = yaml.safe_load(file)
+        
+    # Use num_workers from config if not specified in args
+    if args.num_workers is None and 'num_workers' in config:
+        args.num_workers = config['num_workers']
+    elif args.num_workers is None:
+        args.num_workers = 1
+        
+    args.config = config
     
     return args
 
