@@ -4,6 +4,7 @@ from workflow.chat_state import ChatSystemState
 from llm.models import async_llm_chain_call, get_llm_chain
 from llm.prompts import get_prompt
 from llm.parsers import get_parser
+import logging
 
 class QueryEnhancement(ChatTool):
     """Tool for enhancing queries with conversation context."""
@@ -17,6 +18,8 @@ class QueryEnhancement(ChatTool):
         
     def _run(self, state: ChatSystemState) -> None:
         """Enhance the query with or without contextual information."""
+        logging.info(f"[QueryEnhancement] Original question: {state.task.question}")
+        
         # Prepare request with focus on schema-based improvements
         request_kwargs = {
             "CURRENT_QUESTION": state.task.question,
@@ -39,6 +42,9 @@ class QueryEnhancement(ChatTool):
         state.task.original_question = state.task.question  # preserve original
         state.task.question = response["enhanced_question"]
         state.task.context_reasoning = response["reasoning"]
+        
+        logging.info(f"[QueryEnhancement] Enhanced question: {state.task.question}")
+        logging.info(f"[QueryEnhancement] Enhancement reasoning: {state.task.context_reasoning}")
         
     def _get_updates(self, state: ChatSystemState) -> Dict[str, Any]:
         return {

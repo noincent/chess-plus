@@ -6,6 +6,9 @@ Your task is to analyze both:
 
 Enhancement priorities:
 1. Conversation Context:
+   - Determine if employee context is needed based on query type:
+     * Personal queries (my tasks, my hours): Include employee context(If someone name is provided do NOT use employee ID, delete it from the enhanced question)
+     * General queries (team stats, client analysis): Skip employee context
    - Preserve essential information for SQL generation
    - Maintain context for meaningful responses
    - Only reference relevant previous results
@@ -17,6 +20,18 @@ Enhancement priorities:
    - Standardize date formats
    - Consider both Chinese and English variations
    - Handle common synonyms and terms based on sample data
+   - For project/team searches: Check both project.name and team.name columns
+   - Handle name variations across both project and team tables
+   - For department searches: Check both full names and shortened versions (e.g., '深化' matches '装饰深化组')
+   - When searching departments, check both department and subdepartment fields
+   - Common department shorthand mappings:
+     * 深化 -> 装饰深化组
+     * 方案 -> 方案设计1组, 方案设计2组, 方案设计3组
+     * 智能 -> 智能化弱电组
+     * 机电 -> 机电组
+     * 内审 -> 内审组
+     * AI -> AI团队
+
 
 3. Query Clarification:
    - Resolve ambiguous terms using schema examples
@@ -49,23 +64,22 @@ Reasoning: Clarifies department hierarchy based on schema structure.
 Original: "Show delayed BMW projects"
 Sample Values:
 - project.name: ['宝马汽车2024-2026年年框设计项目', 'BMW Series 2024']
+- team.name: ['BMW-BJ-2024', 'CANAAN24004-BJ08']
 Foreign Keys:
 - project.team_id -> team.uuid
 
-Enhanced: "Show projects where name contains BMW or 宝马 and current_date > expected_completion_date, including team assignments"
-Reasoning: Adds bilingual variations and proper join information.
+Enhanced: "Show projects where (project.name contains BMW/宝马 OR team.name contains BMW) AND current_date > expected_completion_date, including team assignments"
+Reasoning: Adds bilingual variations and checks both project and team names, with proper join information.
 
 4. Work Hour Calculations:
 Original: "Total hours by department"
 Schema Constraints:
-- work_hour.is_reversed: Boolean
 - work_hour.hour: DECIMAL(10,2)
 Foreign Keys:
 - work_hour.employee_id -> employee.uuid
 
-Enhanced: "Calculate total valid work hours (excluding reversed entries) grouped by department, including subdepartment rollup"
-Reasoning: Adds critical is_reversed condition and clarifies department hierarchy.
-
+Enhanced: "Calculate total work hoursgrouped by department, including subdepartment rollup"
+Reasoning: Uses schema constraints to handle NULL values and adds subdepartment rollup.
 5. Client Classification:
 Original: "List foreign clients"
 Sample Values:
@@ -96,6 +110,63 @@ Sample Values:
 
 Enhanced: "Find projects with sign_date between '2024-07-01' and '2024-09-30', handling NULL dates"
 Reasoning: Standardizes date format based on schema and handles NULL values.
+
+8. Personal Query Context:
+Original Question: "Show my assigned projects (employee_id: 6d642ac1-a6f0-11ef-b88d-30c9abb7563e)"
+Sample Values: 
+- users.employee_id -> employee.uuid
+- team_assignment.employee_id -> employee.uuid
+- work_hour.employee_id -> employee.uuid
+
+Enhanced: "Find projects where employee_id = '6d642ac1-a6f0-11ef-b88d-30c9abb7563e' through team assignments or work hours"
+Reasoning: Uses employee context since it's a personal query about individual assignments.
+
+9. Non-Personal Query Context:
+Original Question: "Show team performance metrics (employee_id: 6d642ac1-a6f0-11ef-b88d-30c9abb7563e)"
+Sample Values:
+- team.name: ['CANAAN24004-BJ08', 'CANAAN24005-BJ08']
+- project.revenue: [3230000, 275000, 6800000]
+
+Enhanced: "Calculate team performance metrics including revenue, project count, and work hours for all teams"
+Reasoning: Omits employee_id since it's not relevant for overall team performance analysis, even though it was provided in the question.
+
+10. Department Name Resolution:
+Original: "Show 深化 team projects"
+Schema:
+- employee.department: ['设计管理部', '工程营造部']
+- employee.subdepartment: ['装饰深化组', '方案设计1组']
+
+Enhanced: "Show projects for teams where employee.subdepartment LIKE '%深化%' (matching full name '装饰深化组')"
+Reasoning: Uses partial matching to handle shortened department names while maintaining accuracy.
+
+Common Department Shorthand Mappings:
+- 深化 -> 装饰深化组
+- 方案 -> 方案设计1组, 方案设计2组, 方案设计3组
+- 智能 -> 智能化弱电组
+- 机电 -> 机电组
+- 内审 -> 内审组
+- AI -> AI团队
+
+11. Department Hierarchy with Shorthand:
+Original: "List all 设计 employees"
+Schema:
+- employee.department: ['设计管理部']
+- employee.subdepartment: ['方案设计1组', '方案设计2组', '方案设计3组']
+
+Enhanced: "List employees where department LIKE '%设计%' OR subdepartment LIKE '%设计%', handling variations in both full and shortened names"
+Reasoning: Includes both department and subdepartment searches with partial matching.
+
+12. Project and Team Name Resolution:
+Original: "Show all GS projects"
+Sample Values:
+- project.name: ['GS19037项目设计', 'BMW Series 2024']
+- team.name: ['GS19037-BJ04', 'GS19121-CQ10', 'CANAAN24004-BJ08']
+Foreign Keys:
+- project.team_id -> team.uuid
+
+Enhanced: "Find projects where project.name LIKE '%GS%' OR team.name LIKE '%GS%', including team assignments and related details"
+Reasoning: Searches for the term in both project names and team names to ensure comprehensive results, with proper joins through team_id.
+
 
 Current Conversation Context:
 {CONVERSATION_HISTORY}

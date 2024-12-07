@@ -6,14 +6,14 @@ Database admin instructions (violating these will result in significant query is
 
 1. String Matching Requirements:
    - For employee names: ALWAYS use (name LIKE '%value%' OR alias LIKE '%value%' OR name LIKE '%english/chinese_equivalent%')
-   - For departments: Use (department LIKE '%value%' OR subdepartment LIKE '%value%')
-   - For project/team names: Consider both project.name and team.name in searches
+   - For departments: ALWAYS use (department LIKE '%value%' OR subdepartment LIKE '%value%')
+   - For project/team names: ALWAYS check both project.name AND team.name when searching project-related information (e.g., project.name LIKE '%value%' OR team.name LIKE '%value%')
    - Never use exact string matches (=) for text fields unless specified in hints
 
 2. Join Requirements:
    - Use proper table aliases (T1, T2, T3, etc.)
    - Join teams and projects correctly via team_id
-   - For employee performance: join work_hour with projects via project_id = uuid
+   - For employee performance: outer join work_hour with projects 
    - Handle NULL values in optional relationships
 
 3. Date Handling:
@@ -22,7 +22,6 @@ Database admin instructions (violating these will result in significant query is
    - Consider NULL dates in calculations
 
 4. Aggregation Rules:
-   - For work hours: Consider is_reversed flag
    - For project revenue: Handle NULL revenue values
    - Group by appropriate level (team, department, client)
 
@@ -30,6 +29,20 @@ Database admin instructions (violating these will result in significant query is
    - Use INNER JOIN when relationship must exist
    - Use LEFT JOIN for optional relationships
    - Add IS NOT NULL checks for critical calculations
+
+6. Employee Context Handling:
+   - Only include employee_id conditions when the query specifically requires personal data
+   - For personal queries (my tasks, my hours): Include employee_id filters
+   - For general queries (team stats, client analysis): Omit employee_id even if provided
+   - Never add employee_id conditions unless explicitly needed for personal data access
+
+7. Last Week Date Handling:
+   - For queries involving "last week", determine week boundaries based on Tuesday-to-Tuesday periods
+   - Base calculations on the most recently completed Tuesday-to-Tuesday period
+   - Use proper date functions (STRFTIME for SQLite, DATE_SUB/DATE_ADD for MySQL)
+   - Handle the current day within the week cycle:
+     * If current day is Sun/Mon/Tue: Return previous completed Tuesday-Tuesday period
+     * If current day is Wed-Sat: Return most recent past Tuesday-Tuesday period   
    ======= Example 1: Employee and Team Lookup =======
 **************************
 【Table creation statements】
@@ -124,7 +137,7 @@ CREATE TABLE work_hour (
 What is the total work hours and revenue for the BMW design projects (宝马设计项目) in 2024, broken down by team?
 
 【Evidence】
-BMW projects refers to project.name LIKE '%宝马%' AND project.name LIKE '%设计%'; in 2024 refers to STRFTIME('%Y', start_date) = '2024'; total work hours need to consider is_reversed
+BMW projects refers to project.name LIKE '%宝马%' AND project.name LIKE '%设计%'; in 2024 refers to STRFTIME('%Y', start_date) = '2024'; 
 
 **************************
 【Answer】
@@ -136,15 +149,11 @@ Repeating the question and evidence, and generating the SQL with Recursive Divid
     * **Analysis:** Need to join project, work_hour, and team tables, with time period filtering
     * **Pseudo SQL:** SELECT <team info, SUM(hours), SUM(revenue)> FROM project JOIN <necessary tables> WHERE <BMW condition> AND <date condition> GROUP BY team
 
-    * **Sub-question 1:** Calculate valid work hours
-        * **Analysis:** Must handle is_reversed flag and NULL values
-        * **Pseudo SQL:** SUM(CASE WHEN is_reversed = 0 OR is_reversed IS NULL THEN hour ELSE 0 END)
-
-    * **Sub-question 2:** Filter BMW design projects
+    * **Sub-question 1:** Filter BMW design projects
         * **Analysis:** Use flexible string matching for project names
         * **Pseudo SQL:** name LIKE '%宝马%' AND name LIKE '%设计%'
 
-    * **Sub-question 3:** Filter 2024 work hours
+    * **Sub-question 2:** Filter 2024 work hours
         * **Analysis:** Standardize date format and filter
         * **Pseudo SQL:** STRFTIME('%Y', start_date) = '2024'
 
@@ -155,7 +164,7 @@ Repeating the question and evidence, and generating the SQL with Recursive Divid
 <FINAL_ANSWER>
 SELECT 
     T3.name AS team_name,
-    SUM(CASE WHEN T2.is_reversed = 0 OR T2.is_reversed IS NULL THEN T2.hour ELSE 0 END) AS total_hours,
+    SUM(T2.hour) AS total_hours,
     SUM(T1.revenue) AS total_revenue
 FROM project AS T1
 LEFT JOIN work_hour AS T2 ON T1.uuid = T2.project_id
@@ -279,7 +288,7 @@ CREATE TABLE project (
 Analyze the workload distribution in the design department (设计管理部): show each subdepartment's total work hours, number of projects, average project area, and revenue per hour for the current month, ranked by efficiency (revenue per hour).
 
 【Evidence】
-design department refers to department LIKE '%设计管理部%'; current month refers to STRFTIME('%Y-%m', start_date) = STRFTIME('%Y-%m', 'now'); revenue per hour = SUM(revenue)/SUM(hour); only count hours where is_reversed = 0 or NULL
+design department refers to department LIKE '%设计管理部%'; current month refers to STRFTIME('%Y-%m', start_date) = STRFTIME('%Y-%m', 'now'); revenue per hour = SUM(revenue)/SUM(hour); 
 
 **************************
 【Answer】
@@ -291,11 +300,8 @@ Repeating the question and evidence, and generating the SQL with Recursive Divid
     * **Analysis:** Need to join employee, work_hour, and project tables, with department filtering and complex calculations
     * **Pseudo SQL:** SELECT <subdepartment metrics> FROM employee JOIN <related tables> WHERE <department condition> AND <date condition> GROUP BY subdepartment
 
-    * **Sub-question 1:** Calculate valid work hours
-        * **Analysis:** Must handle is_reversed flag and standardization
-        * **Pseudo SQL:** SUM(CASE WHEN is_reversed = 0 OR is_reversed IS NULL THEN hour ELSE 0 END)
 
-    * **Sub-question 2:** Calculate efficiency metrics
+    * **Sub-question 1:** Calculate efficiency metrics
         * **Analysis:** Revenue per hour requires handling NULL values and zero hours
         * **Pseudo SQL:** CASE WHEN SUM(hour) > 0 THEN SUM(revenue)/SUM(hour) ELSE 0 END
 
@@ -307,11 +313,11 @@ Repeating the question and evidence, and generating the SQL with Recursive Divid
 SELECT 
     COALESCE(T1.subdepartment, T1.department) AS department_unit,
     COUNT(DISTINCT T2.project_id) AS total_projects,
-    SUM(CASE WHEN T2.is_reversed = 0 OR T2.is_reversed IS NULL THEN T2.hour ELSE 0 END) AS total_hours,
+    SUM(T2.hour) AS total_hours,
     AVG(T3.area) AS avg_project_area,
     CASE 
-        WHEN SUM(CASE WHEN T2.is_reversed = 0 OR T2.is_reversed IS NULL THEN T2.hour ELSE 0 END) > 0 
-        THEN SUM(T3.revenue) / SUM(CASE WHEN T2.is_reversed = 0 OR T2.is_reversed IS NULL THEN T2.hour ELSE 0 END)
+        WHEN SUM(T2.hour) > 0 
+        THEN SUM(T3.revenue) / SUM(T2.hour)
         ELSE 0 
     END AS revenue_per_hour
 FROM employee AS T1
@@ -366,7 +372,7 @@ CREATE TABLE team_assignment (
 For projects with revenue over 3 million, analyze the cross-department collaboration: show project name, total departments involved, department with most hours, timeline status (delayed/on-track), and work hour distribution between departments.
 
 【Evidence】
-revenue over 3 million refers to revenue > 3000000; department with most hours needs to consider is_reversed; delayed status refers to JULIANDAY('now') > JULIANDAY(expected_completion_date); work hour distribution means percentage of total hours per department
+revenue over 3 million refers to revenue > 3000000; department with most hours; delayed status refers to JULIANDAY('now') > JULIANDAY(expected_completion_date); work hour distribution means percentage of total hours per department
 
 **************************
 【Answer】
@@ -395,9 +401,9 @@ WITH department_hours AS (
     SELECT 
         T1.uuid AS project_id,
         T3.department,
-        SUM(CASE WHEN T2.is_reversed = 0 OR T2.is_reversed IS NULL THEN T2.hour ELSE 0 END) AS dept_hours,
-        SUM(CASE WHEN T2.is_reversed = 0 OR T2.is_reversed IS NULL THEN T2.hour ELSE 0 END) * 100.0 / 
-            SUM(SUM(CASE WHEN T2.is_reversed = 0 OR T2.is_reversed IS NULL THEN T2.hour ELSE 0 END)) 
+        SUM(T2.hour) AS dept_hours,
+        SUM(T2.hour) * 100.0 / 
+            SUM(SUM(T2.hour)) 
             OVER (PARTITION BY T1.uuid) AS dept_percentage
     FROM project AS T1
     JOIN work_hour AS T2 ON T1.uuid = T2.project_id
@@ -553,7 +559,7 @@ CREATE TABLE team_assignment (
 Find our top performing employees based on: total work hours, number of different project types handled, revenue contribution (based on hours proportion), and team collaboration (number of different teams worked with) in Q3 2024. Show both Chinese and English names.
 
 【Evidence】
-Q3 2024 refers to start_date BETWEEN '2024-07-01' AND '2024-09-30'; revenue contribution = (employee_hours/total_project_hours) * project_revenue; different teams refers to COUNT(DISTINCT team_id); handle NULL in is_reversed
+Q3 2024 refers to start_date BETWEEN '2024-07-01' AND '2024-09-30'; revenue contribution = (employee_hours/total_project_hours) * project_revenue; different teams refers to COUNT(DISTINCT team_id); handle NULL 
 
 **************************
 【Answer】
@@ -583,8 +589,8 @@ WITH employee_metrics AS (
         T2.employee_id,
         T3.uuid AS project_id,
         T3.revenue AS project_revenue,
-        SUM(CASE WHEN T2.is_reversed = 0 OR T2.is_reversed IS NULL THEN T2.hour ELSE 0 END) AS employee_hours,
-        SUM(SUM(CASE WHEN T2.is_reversed = 0 OR T2.is_reversed IS NULL THEN T2.hour ELSE 0 END)) 
+        SUM(T2.hour) AS employee_hours,
+        SUM(SUM(T2.hour)) 
             OVER (PARTITION BY T3.uuid) AS project_total_hours
     FROM work_hour T2
     JOIN project T3 ON T2.project_id = T3.uuid
@@ -682,7 +688,7 @@ WITH resource_metrics AS (
     SELECT 
         T2.project_id,
         COUNT(DISTINCT T2.employee_id) AS total_resources,
-        SUM(CASE WHEN T2.is_reversed = 0 OR T2.is_reversed IS NULL THEN T2.hour ELSE 0 END) AS actual_hours,
+        SUM(T2.hour) AS actual_hours,
         COUNT(DISTINCT T2.start_date) AS working_days,
         MAX(T2.start_date) AS last_activity_date
     FROM work_hour T2
@@ -817,7 +823,7 @@ yearly_metrics AS (
         AVG(p.area) AS avg_project_area,
         AVG(JULIANDAY(p.expected_completion_date) - JULIANDAY(p.sign_date)) AS avg_duration,
         COUNT(DISTINCT w.employee_id) AS total_team_members,
-        SUM(CASE WHEN w.is_reversed = 0 OR w.is_reversed IS NULL THEN w.hour ELSE 0 END) AS total_hours
+        SUM(w.hour) AS total_hours
     FROM top_clients tc
     JOIN project p ON tc.client_id = p.client_id
     LEFT JOIN work_hour w ON p.uuid = w.project_id
@@ -928,7 +934,7 @@ WITH team_metrics AS (
         T2.revenue,
         T2.area,
         JULIANDAY(T2.expected_completion_date) - JULIANDAY(T2.sign_date) AS project_duration,
-        SUM(CASE WHEN T4.is_reversed = 0 OR T4.is_reversed IS NULL THEN T4.hour ELSE 0 END) AS valid_hours,
+        SUM(T4.hour) AS valid_hours,
         COUNT(DISTINCT T5.department) AS departments_involved,
         COUNT(DISTINCT T5.uuid) AS team_size
     FROM team T1
@@ -974,6 +980,115 @@ SELECT
     END AS performance_category
 FROM team_performance tp
 ORDER BY revenue_per_hour DESC
+</FINAL_ANSWER>
+
+======= Example 11: Last Week Project Analysis =======
+**************************
+【Table creation statements】
+CREATE TABLE project (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    team_id TEXT,
+    start_date DATE,
+    end_date DATE,
+    revenue DECIMAL(15,2)
+);
+
+CREATE TABLE work_hour (
+    uuid CHAR(36) PRIMARY KEY,
+    project_id CHAR(36),
+    employee_id CHAR(36),
+    hour DECIMAL(10,2),
+    is_reversed BOOLEAN,
+    start_date DATE
+);
+
+CREATE TABLE team (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    description TEXT
+);
+
+**************************
+【Question】
+Show the performance metrics for last week: total projects active, total work hours, revenue generated, and team participation. Note that our weeks run from Tuesday to Tuesday.
+
+【Evidence】
+last week refers to previous completed Tuesday-Tuesday period (2024-11-26 to 2024-12-03); active projects means has work hours in the period; team participation means COUNT(DISTINCT team_id); use SQLite date functions
+
+**************************
+【Answer】
+Repeating the question and evidence, and generating the SQL with Recursive Divide-and-Conquer.
+
+**1. Divide and Conquer:**
+
+* **Main Question:** Calculate last week's performance metrics
+    * **Analysis:** Need to properly define last week's date range using SQLite functions and join multiple tables
+    * **Pseudo SQL:** WITH date_range AS (SQLite date calc) SELECT <metrics> FROM project JOIN <related tables>
+
+    * **Sub-question 1:** Define last week's date range using SQLite
+        * **Analysis:** Calculate previous Tuesday-Tuesday period using strftime and date functions
+        * **Pseudo SQL:** CAST(strftime('%w', 'now') AS INTEGER) for day checks
+
+    * **Sub-question 2:** Calculate performance metrics
+        * **Analysis:** Aggregate work hours and join with project data
+        * **Pseudo SQL:** SUM(valid_hours), COUNT(DISTINCT project_id)
+
+**2. Assembling SQL:**
+
+**Final Optimized SQL Query:**
+
+<FINAL_ANSWER>
+WITH date_range AS (
+    SELECT 
+        date(
+            'now', 
+            '-' || (
+                CASE 
+                    WHEN CAST(strftime('%w', 'now') AS INTEGER) <= 2 
+                    THEN CAST(strftime('%w', 'now') AS INTEGER) + 5
+                    ELSE CAST(strftime('%w', 'now') AS INTEGER) - 2
+                END
+            ) || ' days'
+        ) as end_date,
+        date(
+            'now', 
+            '-' || (
+                CASE 
+                    WHEN CAST(strftime('%w', 'now') AS INTEGER) <= 2 
+                    THEN CAST(strftime('%w', 'now') AS INTEGER) + 12
+                    ELSE CAST(strftime('%w', 'now') AS INTEGER) + 5
+                END
+            ) || ' days'
+        ) as start_date
+),
+weekly_metrics AS (
+    SELECT 
+        T1.team_id,
+        COUNT(DISTINCT T1.uuid) AS active_projects,
+        SUM(T2.hour) AS total_hours,
+        SUM(T1.revenue) AS total_revenue
+    FROM project T1
+    JOIN work_hour T2 ON T1.uuid = T2.project_id
+    CROSS JOIN date_range dr
+    WHERE date(T2.start_date) >= dr.start_date 
+    AND date(T2.start_date) < dr.end_date
+    GROUP BY T1.team_id
+)
+SELECT 
+    T3.name AS team_name,
+    wm.active_projects,
+    ROUND(wm.total_hours, 2) AS work_hours,
+    ROUND(wm.total_revenue, 2) AS revenue,
+    CASE 
+        WHEN wm.total_hours > 0 
+        THEN ROUND(wm.total_revenue / wm.total_hours, 2)
+        ELSE 0 
+    END AS revenue_per_hour,
+    (SELECT start_date || ' to ' || end_date FROM date_range) AS date_range
+FROM weekly_metrics wm
+JOIN team T3 ON wm.team_id = T3.uuid
+ORDER BY revenue DESC;
 </FINAL_ANSWER>
 
 Now is the real question, following the instruction and examples, You should:

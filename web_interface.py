@@ -11,6 +11,8 @@ from interface import CHESSInterface
 from threading import Lock
 import time
 import yaml
+from translator import SQLTranslator
+
 
 # Add the src directory to Python path
 current_dir = Path(__file__).parent
@@ -103,6 +105,20 @@ async def query(request: QueryRequest):
             session_id=chess_session_id,
             question=request.prompt
         )
+
+        # Create a new translator instance for this request
+        sql_translator = SQLTranslator()
+
+        # Translate SQL query if present
+        if 'sql_query' in response:
+            try:
+                mysql_query, warnings = sql_translator.translate(response['sql_query'])
+                if warnings:
+                    logging.warning(f"SQL translation warnings: {warnings}")
+                response['sql_query'] = mysql_query
+            except Exception as e:
+                logging.error(f"SQL translation error: {e}")
+                raise HTTPException(status_code=500, detail="SQL translation failed")
 
         return {"result": response}
     except ValueError as e:

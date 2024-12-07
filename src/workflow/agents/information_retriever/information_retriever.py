@@ -1,5 +1,6 @@
 from workflow.agents.agent import Agent
 from workflow.system_state import SystemState
+import logging
 
 from workflow.agents.information_retriever.tool_kit.extract_keywords import ExtractKeywords
 from workflow.agents.information_retriever.tool_kit.retrieve_entity import RetrieveEntity
@@ -25,3 +26,8 @@ class InformationRetriever(Agent):
             "retrieve_entity": RetrieveEntity(**config["tools"]["retrieve_entity"]),
             "retrieve_context": RetrieveContext(**config["tools"]["retrieve_context"])
         }
+        
+    def run(self, state: SystemState) -> SystemState:
+        logging.info(f"[InformationRetriever] Received question for processing: {state.task.question}")
+        logging.info(f"[InformationRetriever] Original question was: {state.task.original_question}")
+        return super().run(state)

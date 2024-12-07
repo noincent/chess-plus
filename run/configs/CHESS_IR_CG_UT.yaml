@@ -49,21 +49,21 @@ team_agents:
         generator_configs:
           - template_name: 'generate_candidate_wtl'
             engine_config:
-              engine_name: 'gpt-4o-mini'
-              temperature: 0.5
+              engine_name: 'gpt-4o'
+              temperature: 0.1
             parser_name: 'generate_candidate_gemini_markdown_cot'
-            sampling_count: 5
+            sampling_count: 10
           - template_name: 'generate_candidate_wtl_two'
             engine_config:
-              engine_name: 'gpt-4o-mini'
-              temperature: 0.5
+              engine_name: 'gpt-4o'
+              temperature: 0.1
             parser_name: 'generate_candidate_gemini_markdown_cot'
-            sampling_count: 5
+            sampling_count: 10
 
       revise:
         template_name: 'revise_one'
         engine_config:
-          engine_name: 'gpt-4o-mini'
+          engine_name: 'gpt-4o'
           temperature: 0.0
         parser_name: 'revise_new'
   

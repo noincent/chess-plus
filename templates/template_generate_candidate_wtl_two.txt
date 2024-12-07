@@ -18,9 +18,9 @@ Database admin instructions (violating any of these will result in significant q
 1. String Matching and Text Requirements:
    - For text searches: Always use LIKE with wildcards (e.g., name LIKE '%value%')
    - For employee names: Check both name and alias columns
-   - For departments: Check both department and subdepartment
+   - For departments: Check both department and subdepartment and use LIKE with wildcards
    - Consider both Chinese and English variations in searches
-   - Never use exact string matches (=) for text fields unless specified in hints
+   - NEVER use exact string matches (=) for text fields 
    - Handle potential NULL values in text fields
 
 2. Join Requirements:
@@ -56,14 +56,25 @@ Database admin instructions (violating any of these will result in significant q
    - Consider query execution plan
 
 6. Business Domain Rules:
-   - For work hours: Consider is_reversed flag
    - For project calculations: Handle area and duration together
    - For team metrics: Consider cross-department collaboration
    - For client analysis: Consider background categories
    - Handle special project naming conventions
    - Consider organizational hierarchy
 
-7. Output Requirements:
+7. Last Week Date Handling:
+   - Handle Tuesday-to-Tuesday week boundaries consistently
+   - For "last week" queries: always return most recently completed Tuesday-Tuesday period 
+   - Consider current day position within week cycle:
+     * For Sun/Mon/Tue: Use previous completed Tuesday-Tuesday period
+     * For Wed-Sat: Use most recent past Tuesday-Tuesday period
+   - Use appropriate date functions per database type:
+     * For SQLite: STRFTIME and date arithmetic 
+     * For MySQL: DATE_SUB/DATE_ADD
+   - Handle NULL dates and date comparisons appropriately
+   - Include date range validation in outputs
+
+8. Output Requirements:
    - Only include requested columns
    - Format numbers appropriately
    - Handle NULL values in output
@@ -82,10 +93,9 @@ Special Scenario Handling:
 
 2. Work Hour Calculations:
    - Valid hours calculation:
-     SUM(CASE WHEN is_reversed = 0 OR is_reversed IS NULL 
-         THEN hour ELSE 0 END) AS valid_hours
+     SUM(hour) AS valid_hours
    - Efficiency metrics:
-     SUM(revenue) / NULLIF(SUM(valid_hours), 0) AS revenue_per_hour
+     SUM(revenue) / NULLIF(SUM(hour), 0) AS revenue_per_hour
 
 3. Project Analysis:
    - Project status:
@@ -99,7 +109,7 @@ Special Scenario Handling:
    - Cross-department collaboration:
      COUNT(DISTINCT department) AS departments_involved
    - Resource utilization:
-     SUM(valid_hours) / NULLIF(COUNT(DISTINCT working_days), 0) AS daily_utilization
+     SUM(hour) / NULLIF(COUNT(DISTINCT working_days), 0) AS daily_utilization
 
 5. Client Portfolio:
    - Client categorization:
@@ -182,7 +192,7 @@ CREATE TABLE project (
 Find the total valid work hours and revenue contribution for employee named "Shuran" (including English/Chinese variations) in 2024.
 
 【Evidence】
-Shuran refers to name LIKE '%舒然%' OR alias LIKE '%Shuran%'; valid work hours means is_reversed = 0 or NULL; 2024 means STRFTIME('%Y', start_date) = '2024'
+Shuran refers to name LIKE '%舒然%' OR alias LIKE '%Shuran%'; 2024 means STRFTIME('%Y', start_date) = '2024'
 
 **************************
 【Answer】
@@ -201,7 +211,6 @@ Let's analyze this step by step using our Query Plan Guided SQL Generation appro
    - Consider both Chinese and English variations
    
 2. Work Hour Calculation:
-   - Filter out reversed entries
    - Sum valid hours
    
 3. Revenue Attribution:
@@ -219,7 +228,7 @@ Let's analyze this step by step using our Query Plan Guided SQL Generation appro
 WITH employee_hours AS (
     SELECT 
         T2.project_id,
-        SUM(CASE WHEN T2.is_reversed = 0 OR T2.is_reversed IS NULL THEN T2.hour ELSE 0 END) AS valid_hours
+        SUM(T2.hour) AS valid_hours
     FROM employee T1
     JOIN work_hour T2 ON T1.uuid = T2.employee_id
     WHERE (T1.name LIKE '%舒然%' OR T1.alias LIKE '%Shuran%' OR T1.name LIKE '%Shuran%' OR T1.alias LIKE '%舒然%')
@@ -229,7 +238,7 @@ WITH employee_hours AS (
 SELECT 
     SUM(eh.valid_hours) AS total_hours,
     ROUND(SUM(eh.valid_hours * T3.revenue / 
-        (SELECT SUM(CASE WHEN is_reversed = 0 OR is_reversed IS NULL THEN hour ELSE 0 END) 
+        (SELECT SUM(hour) 
          FROM work_hour WHERE project_id = eh.project_id)), 2) AS revenue_contribution
 FROM employee_hours eh
 JOIN project T3 ON eh.project_id = T3.uuid
@@ -294,7 +303,7 @@ Let's analyze this using our Query Plan Guided SQL Generation approach:
    - Calculate completion rate
 
 3. Work Hour Analysis:
-   - Sum valid hours (non-reversed)
+   - Sum valid hours
    - Join with projects for revenue calculation
 
 4. Final Assembly:
@@ -312,7 +321,7 @@ WITH team_metrics AS (
         COUNT(T2.uuid) AS total_projects,
         COUNT(CASE WHEN JULIANDAY('now') > JULIANDAY(T2.expected_completion_date) THEN 1 END) AS completed_projects,
         SUM(T2.revenue) AS total_revenue,
-        SUM(CASE WHEN T3.is_reversed = 0 OR T3.is_reversed IS NULL THEN T3.hour ELSE 0 END) AS valid_hours
+        SUM(T3.hour) AS valid_hours
     FROM team T1
     LEFT JOIN project T2 ON T1.uuid = T2.team_id
     LEFT JOIN work_hour T3 ON T2.uuid = T3.project_id
@@ -364,7 +373,7 @@ CREATE TABLE work_hour (
 For projects with area > 1000 square meters, analyze the department collaboration patterns: show number of departments involved, distribution of work hours across departments, and identify the primary department for each project.
 
 【Evidence】
-department collaboration means COUNT(DISTINCT department); distribution of work hours needs to consider is_reversed; primary department is the department with most work hours
+department collaboration means COUNT(DISTINCT department); distribution of work hours needs to consider hour; primary department is the department with most work hours
 
 **************************
 【Answer】
@@ -384,7 +393,6 @@ Let's analyze this using our Query Plan Guided SQL Generation approach:
 
 2. Department Hours:
    - Calculate valid hours per department
-   - Handle reversed entries
    - Calculate percentages
 
 3. Collaboration Analysis:
@@ -405,7 +413,7 @@ WITH dept_hours AS (
         T1.uuid AS project_id,
         T1.name AS project_name,
         T3.department,
-        SUM(CASE WHEN T2.is_reversed = 0 OR T2.is_reversed IS NULL THEN T2.hour ELSE 0 END) AS valid_hours
+        SUM(T2.hour) AS valid_hours
     FROM project T1
     JOIN work_hour T2 ON T1.uuid = T2.project_id
     JOIN employee T3 ON T2.employee_id = T3.uuid
@@ -582,7 +590,7 @@ Let's analyze this using our Query Plan Guided SQL Generation approach:
 2. Work Hour Calculations:
    - Sum valid hours
    - Calculate daily averages
-   - Handle reversed entries
+   - Handle NULL values
 
 3. Project Load Analysis:
    - Count concurrent projects
@@ -603,7 +611,7 @@ WITH daily_hours AS (
         T2.employee_id,
         T2.start_date,
         COUNT(DISTINCT T2.project_id) AS daily_projects,
-        SUM(CASE WHEN T2.is_reversed = 0 OR T2.is_reversed IS NULL THEN T2.hour ELSE 0 END) AS valid_hours
+        SUM(T2.hour) AS valid_hours
     FROM employee T1
     JOIN work_hour T2 ON T1.uuid = T2.employee_id
     WHERE T2.start_date BETWEEN '2024-07-01' AND '2024-09-30'
@@ -675,7 +683,7 @@ CREATE TABLE project (
 For CANAAN project teams in 2024, analyze the cross-functional collaboration: show team composition by department, collaboration effectiveness (revenue per department involved), and identify optimal team structures.
 
 【Evidence】
-CANAAN teams refers to team.name LIKE 'CANAAN%'; team composition means COUNT(DISTINCT department) per team; collaboration effectiveness = revenue / COUNT(DISTINCT department)
+CANAAN teams refers to team.name LIKE 'CANAAN%'; team composition means COUNT(DISTINCT department); collaboration effectiveness = revenue / COUNT(DISTINCT department)
 
 **************************
 【Answer】
@@ -840,7 +848,7 @@ WITH project_metrics AS (
         JULIANDAY('now') - JULIANDAY(T1.sign_date) AS days_elapsed,
         JULIANDAY(T1.expected_completion_date) - JULIANDAY(T1.sign_date) AS planned_duration,
         COUNT(DISTINCT T2.employee_id) AS assigned_resources,
-        SUM(CASE WHEN T2.is_reversed = 0 OR T2.is_reversed IS NULL THEN T2.hour ELSE 0 END) AS actual_hours,
+        SUM(T2.hour) AS actual_hours,
         COUNT(DISTINCT T2.start_date) AS work_days
     FROM project T1
     LEFT JOIN work_hour T2 ON T1.uuid = T2.project_id
@@ -953,10 +961,7 @@ WITH project_costs AS (
         T1.name,
         T1.revenue,
         T1.area,
-        SUM(CASE WHEN T2.is_reversed = 0 OR T2.is_reversed IS NULL 
-            THEN T2.hour * T3.salary / 160.0 
-            ELSE 0 
-        END) AS labor_cost
+        SUM(T2.hour * T3.salary / 160.0) AS labor_cost
     FROM project T1
     JOIN work_hour T2 ON T1.uuid = T2.project_id
     JOIN employee T3 ON T2.employee_id = T3.uuid
@@ -1030,10 +1035,10 @@ CREATE TABLE employee (
 
 **************************
 【Question】
-For design department projects (设计管理部), analyze quality metrics: timeline adherence rate, revision frequency (based on reversed hours), department workload distribution, and identify patterns in successful project delivery.
+For design department projects (设计管理部), analyze quality metrics: timeline adherence rate, revision frequency (based on work hours), department workload distribution, and identify patterns in successful project delivery.
 
 【Evidence】
-design department refers to department LIKE '%设计管理部%'; revision frequency = SUM(reversed_hours) / total_hours * 100; timeline adherence = completed within expected_completion_date
+design department refers to department LIKE '%设计管理部%'; revision frequency = SUM(hour) / total_hours * 100; timeline adherence = completed within expected_completion_date
 
 **************************
 【Answer】
@@ -1075,7 +1080,6 @@ WITH project_quality AS (
         T1.uuid AS project_id,
         T1.name,
         T1.area,
-        SUM(CASE WHEN T3.is_reversed = 1 THEN T3.hour ELSE 0 END) AS revision_hours,
         SUM(T3.hour) AS total_hours,
         COUNT(DISTINCT T3.employee_id) AS team_size,
         JULIANDAY(T1.expected_completion_date) - JULIANDAY(T1.sign_date) AS planned_duration,
@@ -1098,31 +1102,28 @@ success_patterns AS (
         END AS project_size,
         COUNT(*) AS project_count,
         ROUND(AVG(on_time_delivery) * 100, 2) AS on_time_rate,
-        ROUND(AVG(revision_hours / NULLIF(total_hours, 0) * 100), 2) AS avg_revision_rate,
-        ROUND(AVG(team_size), 1) AS avg_team_size,
         ROUND(AVG(total_hours / NULLIF(area, 0)), 2) AS hours_per_sqm
     FROM project_quality
     GROUP BY project_size
 )
 SELECT 
     pq.name AS project_name,
-    ROUND(pq.revision_hours / NULLIF(pq.total_hours, 0) * 100, 2) AS revision_percentage,
-    pq.team_size,
     ROUND(pq.total_hours / NULLIF(pq.area, 0), 2) AS effort_density,
+    pq.team_size,
     CASE 
-        WHEN pq.revision_hours / NULLIF(pq.total_hours, 0) <= 
-            (SELECT AVG(revision_hours / total_hours) FROM project_quality)
+        WHEN pq.total_hours / NULLIF(pq.area, 0) <= 
+            (SELECT AVG(total_hours / area) FROM project_quality)
         AND pq.on_time_delivery = 1 
         THEN 'High Quality'
         WHEN pq.on_time_delivery = 1 
         THEN 'Good Timeline'
-        WHEN pq.revision_hours / NULLIF(pq.total_hours, 0) <= 
-            (SELECT AVG(revision_hours / total_hours) FROM project_quality)
+        WHEN pq.total_hours / NULLIF(pq.area, 0) <= 
+            (SELECT AVG(total_hours / area) FROM project_quality)
         THEN 'Good Quality'
         ELSE 'Needs Improvement'
     END AS quality_assessment,
     sp.on_time_rate AS category_on_time_rate,
-    sp.avg_revision_rate AS category_avg_revision_rate
+    sp.hours_per_sqm AS category_avg_hours_per_sqm
 FROM project_quality pq
 JOIN success_patterns sp ON 
     CASE 
@@ -1137,7 +1138,7 @@ ORDER BY
         WHEN 'Good Quality' THEN 3
         ELSE 4
     END,
-    revision_percentage ASC
+    effort_density ASC
 </FINAL_ANSWER>
 
 ======= Example 10: Resource Allocation and Operational Efficiency =======
@@ -1226,7 +1227,7 @@ WITH daily_workload AS (
         T2.start_date,
         COUNT(DISTINCT T2.employee_id) AS active_employees,
         COUNT(DISTINCT T2.project_id) AS active_projects,
-        SUM(CASE WHEN T2.is_reversed = 0 OR T2.is_reversed IS NULL THEN T2.hour ELSE 0 END) AS valid_hours
+        SUM(T2.hour) AS valid_hours
     FROM employee T1
     JOIN work_hour T2 ON T1.uuid = T2.employee_id
     WHERE T2.start_date BETWEEN '2024-07-01' AND '2024-09-30'
@@ -1289,6 +1290,116 @@ ORDER BY
     avg_utilization_percent DESC
 </FINAL_ANSWER>
 
+======= Example 11: Last Week Performance Analysis =======
+**************************
+【Table creation statements】
+CREATE TABLE project (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    sign_date DATE,
+    revenue DECIMAL(15,2),
+    area FLOAT
+);
+
+CREATE TABLE work_hour (
+    uuid CHAR(36) PRIMARY KEY,
+    project_id CHAR(36),
+    employee_id CHAR(36),
+    hour DECIMAL(10,2),
+    is_reversed BOOLEAN,
+    start_date DATE
+);
+
+CREATE TABLE employee (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    department TEXT,
+    position TEXT
+);
+
+**************************
+【Question】
+Calculate last week's performance metrics: total work hours, project count, revenue, and employee participation. Note that weeks run from Tuesday to Tuesday.
+
+【Evidence】
+last week refers to previous completed Tuesday-Tuesday period (2024-11-26 to 2024-12-03); ; employee participation means COUNT(DISTINCT employee_id)
+
+**************************
+【Answer】
+Let's analyze this using our Query Plan Guided SQL Generation approach:
+
+** Query Plan: **
+1. Determine the last week's date range (Tuesday to Tuesday)
+2. Calculate work hour metrics within that range
+3. Join with projects for revenue data
+4. Calculate employee participation
+5. Format final metrics
+
+** Detailed Steps: **
+1. Date Range Definition:
+   - Calculate previous Tuesday based on current date
+   - Handle week boundary conditions
+   - Use SQLite date functions
+
+2. Work Hour Analysis:
+   - Sum valid hours
+   - Count distinct employees
+   - Handle NULL values
+
+3. Project Metrics:
+   - Count active projects
+   - Sum project revenue
+   - Join with work hours
+
+4. Final Assembly:
+   - Combine all metrics
+   - Format outputs
+   - Include date range validation
+
+**Final Optimized SQL Query:**
+
+<FINAL_ANSWER>
+WITH date_range AS (
+    SELECT 
+        date('now', 
+            '-' || (
+                CASE 
+                    WHEN CAST(strftime('%w', 'now') AS INTEGER) <= 2 
+                    THEN CAST(strftime('%w', 'now') AS INTEGER) + 12
+                    ELSE CAST(strftime('%w', 'now') AS INTEGER) + 5
+                END
+            ) || ' days') as start_date,
+        date('now', 
+            '-' || (
+                CASE 
+                    WHEN CAST(strftime('%w', 'now') AS INTEGER) <= 2 
+                    THEN CAST(strftime('%w', 'now') AS INTEGER) + 5
+                    ELSE CAST(strftime('%w', 'now') AS INTEGER) - 2
+                END
+            ) || ' days') as end_date
+),
+weekly_metrics AS (
+    SELECT 
+        COUNT(DISTINCT T1.project_id) as project_count,
+        COUNT(DISTINCT T1.employee_id) as employee_count,
+        SUM(T1.hour) as total_hours,
+        SUM(T2.revenue) as total_revenue
+    FROM work_hour T1
+    JOIN project T2 ON T1.project_id = T2.uuid
+    CROSS JOIN date_range dr
+    WHERE date(T1.start_date) >= dr.start_date 
+    AND date(T1.start_date) < dr.end_date
+)
+SELECT 
+    (SELECT start_date || ' to ' || end_date FROM date_range) as week_range,
+    project_count as active_projects,
+    employee_count as active_employees,
+    ROUND(total_hours, 2) as work_hours,
+    ROUND(total_revenue, 2) as revenue,
+    ROUND(total_revenue / NULLIF(total_hours, 0), 2) as revenue_per_hour,
+    ROUND(total_hours / NULLIF(employee_count, 0), 2) as hours_per_employee
+FROM weekly_metrics;
+</FINAL_ANSWER>
 
 Now is the real question, following the instruction and examples, generate the SQL with Recursive Divide-and-Conquer approach. Make sure you only output one single query.
 **************************
