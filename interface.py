@@ -215,7 +215,7 @@ class CHESSInterface:
                 session.save(str(self.results_dir))
                 del self.active_sessions[session_id]
 
-    def chat_query(self, session_id: str, question: str) -> Dict[str, Any]:
+    def chat_query(self, session_id: str, question: str, evidence: str = "") -> Dict[str, Any]:
         """Process a chat query and return results."""
         try:
             session = self._get_session(session_id)
@@ -227,7 +227,7 @@ class CHESSInterface:
                     question_id=uuid.uuid4().hex,
                     db_id=session.db_id,
                     question=question,
-                    evidence=""
+                    evidence=evidence
                 ),
                 tentative_schema={},
                 execution_history=[],

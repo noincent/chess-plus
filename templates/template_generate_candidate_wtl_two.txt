@@ -1401,6 +1401,154 @@ SELECT
 FROM weekly_metrics;
 </FINAL_ANSWER>
 
+Pseudo-code to calculate precise labor cost:
+WITH quarterly_hours AS (
+    -- Step 1: Aggregate total hours for the quarter
+    SELECT 
+        employee_id,
+        SUM(hour) AS total_hours_quarter
+    FROM 
+        work_hour
+    WHERE 
+        start_date >= 'mm-dd-yyyy' AND end_date <= 'mm-dd-yyyy'  -- Specify the time range of the quarter input in the question
+    GROUP BY 
+        employee_id
+),
+precise_labor AS (
+    -- Step 2: Calculate precise hours per month and precise labor cost
+    SELECT 
+        q.employee_id,
+        q.total_hours_quarter,
+        q.total_hours_quarter / 3 AS precise_hours_monthly, -- Divide total hours by 3 months
+        e.salary,
+        e.salary / (q.total_hours_quarter / 3) AS precise_labor_cost -- Calculate cost
+    FROM 
+        quarterly_hours q
+    JOIN 
+        employee e ON q.employee_id = e.uuid
+)
+-- Step 3: Display results
+SELECT 
+    employee_id,
+    total_hours_quarter,
+    ROUND(precise_hours_monthly, 2) AS precise_hours_monthly,
+    salary,
+    ROUND(precise_labor_cost, 2) AS precise_labor_cost
+FROM 
+    precise_labor;
+
+Pseudo-code to calculate one month’s estimated labor cost:
+WITH total_hours_and_employees AS (
+    -- Step 1: Calculate total hours worked and total number of employees for the specified week
+    SELECT 
+        COUNT(DISTINCT employee_id) AS total_employees, 
+        SUM(hour) AS total_hours
+    FROM 
+        work_hour
+    WHERE 
+        start_date >= 'mm-dd-yyyy' AND end_date <= 'mm-dd-yyyy'  -- Specify the date range
+),
+average_salary AS (
+    -- Step 2: Calculate the average monthly salary of employees
+    SELECT 
+        AVG(salary) AS average_monthly_salary
+    FROM 
+        employee
+),
+estimated_hourly_cost AS (
+    -- Step 3: Calculate average hours worked and estimated hourly labor cost
+    SELECT 
+        t.total_hours / t.total_employees AS average_hours_worked, -- Calculate average hours worked
+        a.average_monthly_salary / (t.total_hours / t.total_employees) AS estimated_hourly_labor_cost -- Calculate estimated hourly labor cost
+    FROM 
+        total_hours_and_employees t
+    CROSS JOIN 
+        average_salary a
+)
+-- Step 4: Display results
+SELECT 
+    ROUND(average_hours_worked, 2) AS average_hours_worked,
+    ROUND(estimated_hourly_labor_cost, 2) AS estimated_hourly_labor_cost
+FROM 
+    estimated_hourly_cost;
+
+Pseudo-code to calculate one week’s estimated labor cost:
+WITH total_hours_and_employees AS (
+    -- Step 1: Calculate total hours worked and total number of employees for the specified week
+    SELECT 
+        COUNT(DISTINCT employee_id) AS total_employees, 
+        SUM(hour) AS total_hours
+    FROM 
+        work_hour
+    WHERE 
+        start_date >= 'mm-dd-yyyy' AND end_date <= 'mm-dd-yyyy'  -- Specify the date range
+),
+average_salary AS (
+    -- Step 2: Calculate the average monthly salary of employees
+    SELECT 
+        AVG(salary)/4 AS average_weekly_salary
+    FROM 
+        employee
+),
+estimated_hourly_cost AS (
+    -- Step 3: Calculate average hours worked and estimated hourly labor cost
+    SELECT 
+        t.total_hours / t.total_employees AS average_hours_worked, -- Calculate average hours worked
+        a.average_weekly_salary / (t.total_hours / t.total_employees) AS estimated_hourly_labor_cost -- Calculate estimated hourly labor cost
+    FROM 
+        total_hours_and_employees t
+    CROSS JOIN 
+        average_salary a
+)
+-- Step 4: Display results
+SELECT 
+    ROUND(average_hours_worked, 2) AS average_hours_worked,
+    ROUND(estimated_hourly_labor_cost, 2) AS estimated_hourly_labor_cost
+FROM 
+    estimated_hourly_cost;
+Written Explanation:
+Precise Labor Cost
+Purpose:
+
+Used for finalized accounting to accurately report costs on completed projects, particularly when projects span multiple quarters.
+ 
+Calculation: 
+•           Individual Hourly Rate: Divide the total salary for the quarter by total hours worked.
+◦           Formula: Individual Hourly Rate = Total Salary for Quarter / Total Hours Worked
+•           Project Labor Cost: Multiply the individual hourly rate by the hours worked on a specific project.
+◦           Formula: Project Labor Cost = Individual Hourly Rate * Project Hours
+When to Use: 
+•           Completed Projects: Ensures precise financial reporting for specific periods.
+•           Multi-Quarter Projects: Break down into quarterly segments to account for hourly rate changes.
+Example:
+ For an employee who worked 50 hours on Project XYZ in Q1 at 111 RMB/hour and 35 hours in Q2 at 135 RMB/hour:
+•           Q1 Cost: 111 RMB/hour * 50 hours = 5,550 RMB
+•           Q2 Cost: 135 RMB/hour * 35 hours = 4,725 RMB
+•           Total Project Cost: 5,550 RMB + 4,725 RMB = 10,275 RMB
+Estimated Labor Cost
+Purpose:
+
+ Provides a quick estimate for budget management and planning during ongoing projects.
+ 
+Calculation: 
+1.       Average Hours Worked: Calculate by dividing total hours worked by all employees by the number of employees.
+◦          Formula: Average Hours Worked = Total Number of Hours / Total Number of Employees
+2.       Estimated Hourly Labor Cost: Divide the average monthly salary by average hours worked.
+◦          Formula: Estimated Hourly Labor Cost = Average Monthly Salary / Average Hours Worked
+When to Use: 
+•           Ongoing Projects: Useful for budget forecasting while the project is in progress.
+Example:
+ If the average monthly salary is 20,000 RMB:
+1.       Average Hours Worked: Suppose 4000 hours were worked by 50 employees.
+◦          Average Hours Worked = 4000 hours / 50 employees = 80 hours
+2.       Estimated Hourly Labor Cost: 20,000 RMB / 80 hours = 250 RMB/hour
+Apply this rate to forecast project costs based on expected hours an individual will work.
+ 
+Summary
+•           Precise Labor Cost: Best for past projects where accuracy is crucial for financial reporting.
+•           Estimated Labor Cost: Ideal for current projects where budget estimates guide planning and resource allocation.
+
+
 Now is the real question, following the instruction and examples, generate the SQL with Recursive Divide-and-Conquer approach. Make sure you only output one single query.
 **************************
 【Table creation statements】

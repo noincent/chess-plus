@@ -100,10 +100,21 @@ async def query(request: QueryRequest):
         # Get the user's interface
         interface = get_user_interface(request.user_id)
 
-        # Process the query using the user's interface
+        text = request.prompt
+
+        # Split prompt and instructions, and pass instructions as evidence
+        parts = text.split("INSTRUCTIONS:")
+        prompt = parts[0].strip()
+        instructions = parts[1].strip() if len(parts) > 1 else ""
+        
+        # Format just the prompt part
+        formatted_prompt = f"[EMPLOYEE_ID]\n{request.user_id}\n\n[QUESTION]\n{prompt}"
+
+        # Process the query using the user's interface with instructions as evidence
         response = interface.chat_query(
             session_id=chess_session_id,
-            question=request.prompt
+            question=formatted_prompt,
+            evidence=instructions
         )
 
         # Create a new translator instance for this request

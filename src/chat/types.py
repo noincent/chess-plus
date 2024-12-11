@@ -10,6 +10,7 @@ class ChatMessage(BaseModel):
     sql_query: Optional[str] = None
     query_result: Optional[Any] = None
     response: Optional[str] = None
+    enhanced_question: Optional[str] = None  # Store enhanced question
 
     def dict(self) -> Dict[str, Any]:
         """Convert message to dictionary format for serialization."""
@@ -19,5 +20,6 @@ class ChatMessage(BaseModel):
             'timestamp': self.timestamp.isoformat(),
             'sql_query': self.sql_query,
             'query_result': self.query_result,
-            'response': self.response
+            'response': self.response,
+            'enhanced_question': self.enhanced_question,
         }

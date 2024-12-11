@@ -22,6 +22,12 @@ team_agents:
   chat_context_analyzer:
     engine: 'gpt-4o'
     tools:
+      history_analyzer:
+        template_name: 'history_analyzer_wtl'
+        engine_config:
+          engine_name: 'gpt-4o'
+          temperature: 0.0
+        parser_name: 'query_enhancement'
       query_enhancement:
         template_name: 'query_enhancement_wtl'
         engine_config:
@@ -63,7 +69,7 @@ team_agents:
       revise:
         template_name: 'revise_one'
         engine_config:
-          engine_name: 'gpt-4o'
+          engine_name: 'gpt-4o-mini'
           temperature: 0.0
         parser_name: 'revise_new'
   

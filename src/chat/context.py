@@ -38,7 +38,8 @@ class ChatContext:
         # Store complete interaction in conversation history
         conversation_entry = {
             'timestamp': message.timestamp.isoformat(),
-            'question': message.content,
+            'original_question': message.content,  # Store original question
+            'question': getattr(message, 'enhanced_question', message.content),  # Use enhanced if available
             'sql_query': message.sql_query,
             'query_result': message.query_result,
             'response': message.response,
@@ -87,8 +88,15 @@ class ChatContext:
         
         logging.info(f"Updated question context with new question. Total questions: {len(self.question_context['questions'])}")
 
-    def get_conversation_summary(self, max_entries: int = 3) -> Dict[str, Any]:
-        """Get a comprehensive summary of recent conversations and context."""
+    def get_conversation_summary(self, max_entries: int = 3, format_type: str = 'full') -> Dict[str, Any]:
+        """Get a comprehensive summary of recent conversations and context.
+        
+        Args:
+            max_entries: Maximum number of recent entries to include
+            format_type: Type of format to return ('full', 'sql_focused')
+                - 'full': Original format with all context (backward compatibility)
+                - 'sql_focused': Only SQL-related information
+        """
         if not self.conversation_history:
             return {
                 'current_topic': self.current_topic,
@@ -98,11 +106,32 @@ class ChatContext:
                 'active_constraints': self.active_constraints,
                 'conversation': [],
                 'question_context': self.question_context
+            } if format_type == 'full' else {
+                'queries': [],
+                'tables': list(self.referenced_tables),
+                'columns': list(self.referenced_columns)
             }
             
         recent_entries = self.conversation_history[-max_entries:]
-        formatted_conversation = []
         
+        if format_type == 'sql_focused':
+            sql_focused = []
+            for entry in recent_entries:
+                if entry['sql_query']:  # Only include entries with SQL queries
+                    sql_focused.append({
+                        'question': entry['question'],
+                        'sql': entry['sql_query'],
+                        'result': entry['query_result'],
+                        'timestamp': entry['timestamp']
+                    })
+            return {
+                'queries': sql_focused,
+                'tables': list(self.referenced_tables),
+                'columns': list(self.referenced_columns)
+            }
+        
+        # Original format for backward compatibility
+        formatted_conversation = []
         for entry in recent_entries:
             formatted_conversation.extend([
                 f"Time: {entry['timestamp']}",
