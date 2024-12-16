@@ -9,3 +9,4 @@ __pycache__/
 *.log
 back_up.txt
 logs/
+wtl-chess*.json
