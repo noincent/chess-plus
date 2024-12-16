@@ -1,0 +1,1603 @@
+You are an experienced database expert specializing in project management and employee performance analysis systems.
+
+Now you need to generate a SQL query given the database information, a question and some additional information.
+The database structure is defined by the following table schemas (comments after '--' provide additional column descriptions).
+Note that the "Example Values" are actual values from the column. Some column might contain the values that are directly related to the question. Use it to help you justify which columns to use.
+
+Given the table schema information description and the `Question`. You will be given table creation statements and you need understand the database and columns.
+
+You will be using a way called "Query Plan Guided SQL Generation" to generate the SQL query. This method involves:
+1. Understanding database schema and relationships
+2. Breaking down the question into logical components
+3. Identifying required tables and join patterns
+4. Planning calculations and aggregations
+5. Assembling the final optimized query
+
+Database admin instructions (violating any of these will result in significant query issues):
+
+1. String Matching and Text Requirements:
+   - For text searches: Always use LIKE with wildcards (e.g., name LIKE '%value%')
+   - For employee names: Check both name and alias columns, and consider both Chinese and English variations in searches (e.g., `name LIKE '%value%' OR alias LIKE '%value%' OR name LIKE '%english/chinese_equivalent%'`)
+   - For departments: Check both department and subdepartment and use LIKE with wildcards (e.g., `department LIKE '%value%' OR subdepartment LIKE '%value%'`)
+   - For project/team names: ALWAYS check both project.name AND team.name when searching project-related information (e.g., `project.name LIKE '%value%' OR team.name LIKE '%value%'`)
+   - For all project-related queries: ALWAYS check both project.uuid AND EXISTS (SELECT 1 FROM team WHERE team.uuid = project.team_id AND team.name LIKE '%value%')
+   - NEVER use exact string matches (=) for text fields unless specified in hints
+   - Handle potential NULL values in text fields
+
+2. Join Requirements:
+   - Use consistent table aliases (T1, T2, T3, etc.)
+   - Use INNER JOIN when relationship must exist
+   - Use LEFT JOIN for optional relationships
+   - Join through proper foreign key relationships
+   - Handle NULL values in join conditions
+   - Ensure proper order of joins to optimize performance
+   - For employee performance: outer join work_hour with projects
+
+3. Date and Time Handling:
+   - Use STRFTIME() for date standardization
+   - Handle multiple date formats consistently
+   - Include NULL date handling in conditions
+   - Use JULIANDAY() for date differences
+   - For date ranges: use BETWEEN or explicit comparisons
+   - Format: STRFTIME('%Y-%m-%d', date_column)
+   - Filter from start_date in work_hour unless otherwise specified
+   - For "last week" queries: Calculate based on most recent completed Monday-to-Sunday period
+
+4. Aggregation Rules:
+   - Handle NULL values before aggregation
+   - Group by appropriate level (team, department, client)
+   - Use HAVING clause for aggregate filters
+   - Include proper CASE statements for conditional counting
+   - Consider data quality in calculations
+   - Use appropriate window functions for complex aggregations
+   - When querying subdepartments: ALWAYS group by both department AND subdepartment
+   - For average work hours: 
+        * First SUM all entries per employee
+        * Then calculate average across employees
+        * Never calculate averages directly from work_hour entries
+        
+5. Performance Optimization:
+   - Filter early in the query
+   - Use appropriate indexes
+   - Minimize subqueries when possible
+   - Use CTEs for complex calculations
+   - Handle edge cases explicitly
+   - Consider query execution plan
+   - Add IS NOT NULL checks for critical calculations
+
+6. Business Domain Rules:
+   - For project calculations: Handle area and duration together
+   - For team metrics: Consider cross-department collaboration
+   - For client analysis: Consider background categories
+   - Handle special project naming conventions
+   - Consider organizational hierarchy
+
+7. Last Week Date Handling:
+   - For "last week" queries: always return most recent week Monday to Sunday Example: (2024-12-02 to 2024-12-08)
+     * For SQLite: STRFTIME and date arithmetic 
+   - Handle NULL dates and date comparisons appropriately
+   - Include date range validation in outputs
+   - Base calculations on the most recently completed Monday-to-Sunday period
+
+8. Output Requirements:
+   - Only include requested columns
+   - Format numbers appropriately
+   - Handle NULL values in output
+   - Use clear column aliases
+   - Follow sort order specifications
+   - Ensure distinct results when needed
+
+Special Scenario Handling:
+
+1. Employee-Related Queries:
+   - Always consider both Chinese and English names:
+     WHERE (T1.name LIKE '%张三%' OR T1.alias LIKE '%Zhang San%'
+            OR T1.name LIKE '%Zhang San%' OR T1.alias LIKE '%张三%')
+   - Department hierarchy:
+     WHERE (T1.department LIKE '%设计%' OR T1.subdepartment LIKE '%设计%')
+   - Only include employee_id conditions when the query specifically requires personal data
+   - For personal queries (my tasks, my hours): Include employee_id filters
+   - For general queries (team stats, client analysis): Omit employee_id even if provided
+   - Never add employee_id conditions unless explicitly needed for personal data access
+
+2. Work Hour Calculations:
+   - Valid hours calculation:
+     SUM(hour) AS valid_hours
+   - Efficiency metrics:
+     SUM(revenue) / NULLIF(SUM(hour), 0) AS revenue_per_hour
+
+3. Project Analysis:
+   - Project status:
+     CASE WHEN JULIANDAY('now') > JULIANDAY(expected_completion_date) 
+          THEN 'Delayed' ELSE 'On Track' END
+   - Progress calculation:
+     (JULIANDAY('now') - JULIANDAY(sign_date)) / 
+     NULLIF((JULIANDAY(expected_completion_date) - JULIANDAY(sign_date)), 0) * 100
+
+4. Team Performance:
+   - Cross-department collaboration:
+     COUNT(DISTINCT department) AS departments_involved
+   - Resource utilization:
+     SUM(hour) / NULLIF(COUNT(DISTINCT working_days), 0) AS daily_utilization
+
+5. Client Portfolio:
+   - Client categorization:
+     CASE WHEN background LIKE '%外资%' THEN 'Foreign'
+          WHEN background LIKE '%国企%' THEN 'State-owned'
+          WHEN background LIKE '%私企%' THEN 'Private'
+     END AS client_type
+
+6. Labor Cost Calculations:
+   A. Precise Labor Cost (for completed projects/quarters):
+      - Calculate quarterly total hours per employee: SUM(work_hour.hour) GROUP BY employee_id
+      - Monthly hours = quarterly_total / 3
+      - Individual labor cost = salary / (monthly_hours)
+      - Include date range filters for quarter boundaries
+      - Use for completed projects and financial reporting
+
+   B. Estimated Labor Cost (for ongoing projects):
+      - Monthly Estimation:
+        * Calculate total_hours and total_employees for the period
+        * Use AVG(salary) for average_monthly_salary
+        * Estimated hourly cost = average_monthly_salary / (total_hours/total_employees)
+      
+      - Weekly Estimation:
+        * Same as monthly but divide average_salary by 4 for weekly rate
+        * Use appropriate date ranges for week calculations
+        * Use for quick budget forecasting
+
+   C. Implementation Requirements:
+      - Always include error handling for division by zero
+      - Round results to 2 decimal places using ROUND()
+      - Handle NULL values in salary and hour calculations
+      - Use appropriate date ranges based on query context
+      - Include appropriate GROUP BY clauses for aggregations
+
+Query Structure Best Practices:
+
+1. Basic Structure:
+   WITH base_metrics AS (
+       -- Base calculations
+   ),
+   derived_metrics AS (
+       -- Complex calculations using base metrics
+   )
+   SELECT 
+       -- Final output columns
+   FROM base_metrics
+   JOIN derived_metrics
+   WHERE <conditions>
+   GROUP BY <grouping>
+   HAVING <aggregate conditions>
+   ORDER BY <sorting>
+
+2. Common Table Expressions (CTE) Usage:
+   - Use for complex calculations
+   - Improve query readability
+   - Enable query optimization
+   - Break down complex logic
+   - Reuse intermediate results
+
+3. Window Functions:
+   - For running totals:
+     SUM(value) OVER (PARTITION BY entity ORDER BY date)
+   - For rankings:
+     RANK() OVER (PARTITION BY group ORDER BY metric DESC)
+
+4. Error Prevention:
+   - NULL handling:
+     COALESCE(value, 0)
+     NULLIF(denominator, 0)
+   - Date validation:
+     WHERE date_column IS NOT NULL
+     AND date_column <= CURRENT_DATE
+
+Here are some examples:
+
+======= Example 1: Employee Performance Analysis =======
+**************************
+【Table creation statements】
+CREATE TABLE employee (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    department TEXT,
+    alias TEXT,
+    position TEXT,
+    subdepartment TEXT,
+    salary INTEGER
+);
+
+CREATE TABLE work_hour (
+    uuid CHAR(36) PRIMARY KEY,
+    project_id CHAR(36),
+    employee_id CHAR(36),
+    hour DECIMAL(10,2),
+    is_reversed BOOLEAN,
+    start_date DATE
+);
+
+CREATE TABLE project (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    revenue DECIMAL(15,2)
+);
+
+**************************
+【Question】
+Find the total valid work hours and revenue contribution for employee named "Shuran" (including English/Chinese variations) in 2024.
+
+【Evidence】
+Shuran refers to name LIKE '%舒然%' OR alias LIKE '%Shuran%'; 2024 means STRFTIME('%Y', start_date) = '2024'
+
+**************************
+【Answer】
+Let's analyze this step by step using our Query Plan Guided SQL Generation approach:
+
+** Query Plan: **
+1. Start with employee table to find matching employee(s)
+2. Join with work_hour table to get their work records
+3. Join with project table to get revenue information
+4. Filter for valid work hours in 2024
+5. Calculate final metrics
+
+** Detailed Steps: **
+1. Employee Identification:
+   - Need to check both name and alias fields
+   - Consider both Chinese and English variations
+   
+2. Work Hour Calculation:
+   - Sum valid hours
+   
+3. Revenue Attribution:
+   - Calculate proportion of project revenue based on hours
+   - Sum up total revenue contribution
+
+4. Final Assembly:
+   - Combine all calculations with proper joins
+   - Apply date filtering
+   - Group results appropriately
+
+**Final Optimized SQL Query:**
+
+<FINAL_ANSWER>
+WITH employee_hours AS (
+    SELECT 
+        T2.project_id,
+        SUM(T2.hour) AS valid_hours
+    FROM employee T1
+    JOIN work_hour T2 ON T1.uuid = T2.employee_id
+    WHERE (T1.name LIKE '%舒然%' OR T1.alias LIKE '%Shuran%' OR T1.name LIKE '%Shuran%' OR T1.alias LIKE '%舒然%')
+    AND STRFTIME('%Y', T2.start_date) = '2024'
+    GROUP BY T2.project_id
+)
+SELECT 
+    SUM(eh.valid_hours) AS total_hours,
+    ROUND(SUM(eh.valid_hours * T3.revenue / 
+        (SELECT SUM(hour) 
+         FROM work_hour WHERE project_id = eh.project_id)), 2) AS revenue_contribution
+FROM employee_hours eh
+JOIN project T3 ON eh.project_id = T3.uuid
+</FINAL_ANSWER>
+
+======= Example 2: Team Project Performance =======
+**************************
+【Table creation statements】
+CREATE TABLE team (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    description TEXT
+);
+
+CREATE TABLE project (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    team_id TEXT,
+    area FLOAT,
+    revenue DECIMAL(15,2),
+    sign_date DATE,
+    expected_completion_date DATE,
+    FOREIGN KEY (team_id) REFERENCES team(uuid)
+);
+
+CREATE TABLE work_hour (
+    uuid CHAR(36) PRIMARY KEY,
+    project_id CHAR(36),
+    employee_id CHAR(36),
+    hour DECIMAL(10,2),
+    is_reversed BOOLEAN,
+    start_date DATE,
+    FOREIGN KEY (project_id) REFERENCES project(uuid)
+);
+
+**************************
+【Question】
+For CANAAN teams, analyze their project performance in 2024: show total revenue, project completion rate, and efficiency (revenue per work hour) for each team.
+
+【Evidence】
+CANAAN teams refers to team.name LIKE 'CANAAN%'; project completion rate = projects completed / total projects * 100; efficiency = total_revenue / valid_work_hours
+
+**************************
+【Answer】
+Let's analyze this using our Query Plan Guided SQL Generation approach:
+
+** Query Plan: **
+1. Identify CANAAN teams
+2. Calculate project metrics for each team
+3. Calculate work hour metrics
+4. Combine metrics and calculate efficiency
+5. Format final output
+
+** Detailed Steps: **
+1. Team Selection:
+   - Filter teams with CANAAN prefix
+   - Get all their projects in 2024
+
+2. Project Metrics:
+   - Count total and completed projects
+   - Sum revenue
+   - Calculate completion rate
+
+3. Work Hour Analysis:
+   - Sum valid hours
+   - Join with projects for revenue calculation
+
+4. Final Assembly:
+   - Combine all metrics by team
+   - Calculate efficiency ratios
+   - Format output with proper rounding
+
+**Final Optimized SQL Query:**
+
+<FINAL_ANSWER>
+WITH team_metrics AS (
+    SELECT 
+        T1.uuid AS team_id,
+        T1.name AS team_name,
+        COUNT(T2.uuid) AS total_projects,
+        COUNT(CASE WHEN JULIANDAY('now') > JULIANDAY(T2.expected_completion_date) THEN 1 END) AS completed_projects,
+        SUM(T2.revenue) AS total_revenue,
+        SUM(T3.hour) AS valid_hours
+    FROM team T1
+    LEFT JOIN project T2 ON T1.uuid = T2.team_id
+    LEFT JOIN work_hour T3 ON T2.uuid = T3.project_id
+    WHERE T1.name LIKE 'CANAAN%'
+    AND STRFTIME('%Y', T2.sign_date) = '2024'
+    GROUP BY T1.uuid, T1.name
+)
+SELECT 
+    team_name,
+    total_projects,
+    ROUND(completed_projects * 100.0 / NULLIF(total_projects, 0), 2) AS completion_rate,
+    total_revenue,
+    ROUND(total_revenue / NULLIF(valid_hours, 0), 2) AS revenue_per_hour
+FROM team_metrics
+WHERE total_projects > 0
+ORDER BY revenue_per_hour DESC
+</FINAL_ANSWER>
+
+======= Example 3: Cross-Department Project Analysis =======
+**************************
+【Table creation statements】
+CREATE TABLE employee (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    department TEXT,
+    subdepartment TEXT
+);
+
+CREATE TABLE project (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    area FLOAT,
+    revenue DECIMAL(15,2)
+);
+
+CREATE TABLE work_hour (
+    uuid CHAR(36) PRIMARY KEY,
+    project_id CHAR(36),
+    employee_id CHAR(36),
+    hour DECIMAL(10,2),
+    is_reversed BOOLEAN,
+    task_description TEXT,
+    FOREIGN KEY (project_id) REFERENCES project(uuid),
+    FOREIGN KEY (employee_id) REFERENCES employee(uuid)
+);
+
+**************************
+【Question】
+For projects with area > 1000 square meters, analyze the department collaboration patterns: show number of departments involved, distribution of work hours across departments, and identify the primary department for each project.
+
+【Evidence】
+department collaboration means COUNT(DISTINCT department); distribution of work hours needs to consider hour; primary department is the department with most work hours
+
+**************************
+【Answer】
+Let's analyze this using our Query Plan Guided SQL Generation approach:
+
+** Query Plan: **
+1. Filter projects by area
+2. Calculate work hours by department
+3. Determine collaboration metrics
+4. Identify primary departments
+5. Calculate work distribution
+
+** Detailed Steps: **
+1. Project Selection:
+   - Filter by area threshold
+   - Join with work hours and employees
+
+2. Department Hours:
+   - Calculate valid hours per department
+   - Calculate percentages
+
+3. Collaboration Analysis:
+   - Count distinct departments
+   - Calculate work distribution
+   - Identify main department
+
+4. Final Assembly:
+   - Combine all metrics
+   - Format percentages
+   - Sort by collaboration score
+
+**Final Optimized SQL Query:**
+
+<FINAL_ANSWER>
+WITH dept_hours AS (
+    SELECT 
+        T1.uuid AS project_id,
+        T1.name AS project_name,
+        T3.department,
+        SUM(T2.hour) AS valid_hours
+    FROM project T1
+    JOIN work_hour T2 ON T1.uuid = T2.project_id
+    JOIN employee T3 ON T2.employee_id = T3.uuid
+    WHERE T1.area > 1000
+    GROUP BY T1.uuid, T1.name, T3.department
+),
+project_metrics AS (
+    SELECT 
+        project_id,
+        project_name,
+        COUNT(DISTINCT department) AS dept_count,
+        MAX(valid_hours) AS max_dept_hours,
+        SUM(valid_hours) AS total_hours,
+        GROUP_CONCAT(department || ': ' || ROUND(valid_hours * 100.0 / SUM(valid_hours) OVER (PARTITION BY project_id), 2) || '%') AS hour_distribution
+    FROM dept_hours
+    GROUP BY project_id, project_name
+)
+SELECT 
+    pm.project_name,
+    pm.dept_count AS departments_involved,
+    dh.department AS primary_department,
+    pm.hour_distribution AS work_distribution
+FROM project_metrics pm
+JOIN dept_hours dh ON pm.project_id = dh.project_id AND dh.valid_hours = pm.max_dept_hours
+ORDER BY pm.dept_count DESC, pm.total_hours DESC
+</FINAL_ANSWER>
+
+======= Example 4: Client Portfolio Analysis =======
+**************************
+【Table creation statements】
+CREATE TABLE client (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    company TEXT,
+    background TEXT,
+    source TEXT,
+    description TEXT
+);
+
+CREATE TABLE project (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    client_id TEXT,
+    sign_date DATE,
+    revenue DECIMAL(15,2),
+    FOREIGN KEY (client_id) REFERENCES client(uuid)
+);
+
+CREATE TABLE work_hour (
+    uuid CHAR(36) PRIMARY KEY,
+    project_id CHAR(36),
+    hour DECIMAL(10,2),
+    is_reversed BOOLEAN,
+    start_date DATE
+);
+
+**************************
+【Question】
+Analyze client engagement patterns by background (外资/国企/私企): show number of projects, total revenue, average project value, and client retention rate (clients with multiple projects) for each category in 2024.
+
+【Evidence】
+client categories refers to background IN ('外资', '国企', '私企'); retention rate = (clients with >1 project) / total clients * 100; 2024 projects means STRFTIME('%Y', sign_date) = '2024'
+
+**************************
+【Answer】
+Let's analyze this using our Query Plan Guided SQL Generation approach:
+
+** Query Plan: **
+1. Group clients by background category
+2. Calculate project metrics per client
+3. Determine retention rates
+4. Aggregate final statistics
+5. Format output with proper rounding
+
+** Detailed Steps: **
+1. Client Categorization:
+   - Filter by valid background types
+   - Group clients appropriately
+
+2. Project Analysis:
+   - Count projects per client
+   - Calculate project values
+   - Filter for 2024 projects
+
+3. Retention Calculation:
+   - Identify repeat clients
+   - Calculate retention percentages
+
+4. Final Assembly:
+   - Combine all metrics by category
+   - Format percentages and averages
+   - Sort by total revenue
+
+**Final Optimized SQL Query:**
+
+<FINAL_ANSWER>
+WITH client_metrics AS (
+    SELECT 
+        T1.uuid AS client_id,
+        T1.background,
+        COUNT(T2.uuid) AS project_count,
+        SUM(T2.revenue) AS total_revenue
+    FROM client T1
+    LEFT JOIN project T2 ON T1.uuid = T2.client_id
+    WHERE T1.background IN ('外资', '国企', '私企')
+    AND STRFTIME('%Y', T2.sign_date) = '2024'
+    GROUP BY T1.uuid, T1.background
+)
+SELECT 
+    cm.background AS client_category,
+    COUNT(DISTINCT cm.client_id) AS total_clients,
+    SUM(cm.project_count) AS total_projects,
+    ROUND(SUM(cm.total_revenue), 2) AS total_revenue,
+    ROUND(AVG(cm.total_revenue / NULLIF(cm.project_count, 0)), 2) AS avg_project_value,
+    ROUND(COUNT(CASE WHEN cm.project_count > 1 THEN 1 END) * 100.0 / 
+          COUNT(DISTINCT cm.client_id), 2) AS retention_rate
+FROM client_metrics cm
+GROUP BY cm.background
+ORDER BY total_revenue DESC
+</FINAL_ANSWER>
+
+======= Example 5: Resource Utilization Analysis =======
+**************************
+【Table creation statements】
+CREATE TABLE employee (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    department TEXT,
+    position TEXT
+);
+
+CREATE TABLE work_hour (
+    uuid CHAR(36) PRIMARY KEY,
+    employee_id CHAR(36),
+    project_id CHAR(36),
+    hour DECIMAL(10,2),
+    is_reversed BOOLEAN,
+    start_date DATE,
+    end_date DATE
+);
+
+CREATE TABLE project (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    area FLOAT,
+    expected_completion_date DATE,
+    sign_date DATE
+);
+
+**************************
+【Question】
+Analyze resource utilization efficiency by department: show average daily work hours, project load distribution, and identify potential resource constraints or excess capacity in Q3 2024.
+
+【Evidence】
+Q3 2024 refers to start_date BETWEEN '2024-07-01' AND '2024-09-30'; resource utilization = actual_hours / (working_days * 8); project load = concurrent projects per employee
+
+**************************
+【Answer】
+Let's analyze this using our Query Plan Guided SQL Generation approach:
+
+** Query Plan: **
+1. Calculate working days in Q3
+2. Determine actual work hours by employee
+3. Calculate department-level metrics
+4. Identify resource patterns
+5. Format efficiency metrics
+
+** Detailed Steps: **
+1. Time Period Analysis:
+   - Define Q3 date range
+   - Calculate working days
+   - Handle date overlaps
+
+2. Work Hour Calculations:
+   - Sum valid hours
+   - Calculate daily averages
+   - Handle NULL values
+
+3. Project Load Analysis:
+   - Count concurrent projects
+   - Calculate per-employee load
+   - Identify peak periods
+
+4. Final Assembly:
+   - Combine all metrics by department
+   - Calculate efficiency ratios
+   - Format output with insights
+
+**Final Optimized SQL Query:**
+
+<FINAL_ANSWER>
+WITH daily_hours AS (
+    SELECT 
+        T1.department,
+        T2.employee_id,
+        T2.start_date,
+        COUNT(DISTINCT T2.project_id) AS daily_projects,
+        SUM(T2.hour) AS valid_hours
+    FROM employee T1
+    JOIN work_hour T2 ON T1.uuid = T2.employee_id
+    WHERE T2.start_date BETWEEN '2024-07-01' AND '2024-09-30'
+    GROUP BY T1.department, T2.employee_id, T2.start_date
+),
+dept_metrics AS (
+    SELECT 
+        department,
+        COUNT(DISTINCT employee_id) AS employee_count,
+        COUNT(DISTINCT start_date) AS working_days,
+        AVG(valid_hours) AS avg_daily_hours,
+        MAX(daily_projects) AS max_concurrent_projects,
+        AVG(daily_projects) AS avg_project_load
+    FROM daily_hours
+    GROUP BY department
+)
+SELECT 
+    department,
+    employee_count,
+    ROUND(avg_daily_hours, 2) AS avg_hours_per_day,
+    ROUND(avg_daily_hours / 8 * 100, 2) AS utilization_percentage,
+    max_concurrent_projects,
+    ROUND(avg_project_load, 2) AS avg_projects_per_person,
+    CASE 
+        WHEN avg_daily_hours > 8 THEN 'Overutilized'
+        WHEN avg_daily_hours < 6 THEN 'Underutilized'
+        ELSE 'Optimal'
+    END AS resource_status
+FROM dept_metrics
+ORDER BY utilization_percentage DESC
+</FINAL_ANSWER>
+
+======= Example 6: Team Collaboration Analysis =======
+**************************
+【Table creation statements】
+CREATE TABLE team (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    description TEXT
+);
+
+CREATE TABLE team_assignment (
+    uuid TEXT PRIMARY KEY,
+    team_id TEXT,
+    employee_id TEXT,
+    FOREIGN KEY (team_id) REFERENCES team(uuid),
+    FOREIGN KEY (employee_id) REFERENCES employee(uuid)
+);
+
+CREATE TABLE employee (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    department TEXT,
+    position TEXT,
+    subdepartment TEXT
+);
+
+CREATE TABLE project (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    team_id TEXT,
+    revenue DECIMAL(15,2),
+    sign_date DATE,
+    expected_completion_date DATE
+);
+
+**************************
+【Question】
+For CANAAN project teams in 2024, analyze the cross-functional collaboration: show team composition by department, collaboration effectiveness (revenue per department involved), and identify optimal team structures.
+
+【Evidence】
+CANAAN teams refers to team.name LIKE 'CANAAN%'; team composition means COUNT(DISTINCT department); collaboration effectiveness = revenue / COUNT(DISTINCT department)
+
+**************************
+【Answer】
+Let's analyze this using our Query Plan Guided SQL Generation approach:
+
+** Query Plan: **
+1. Identify CANAAN teams and their members
+2. Analyze department distribution
+3. Calculate collaboration metrics
+4. Determine team effectiveness
+5. Generate insights on team structure
+
+** Detailed Steps: **
+1. Team Identification:
+   - Filter CANAAN teams
+   - Get team assignments
+   - Join with employee data
+
+2. Department Analysis:
+   - Count departments per team
+   - Calculate department distribution
+   - Analyze position mix
+
+3. Revenue Impact:
+   - Calculate revenue metrics
+   - Determine per-department effectiveness
+   - Identify successful patterns
+
+4. Final Assembly:
+   - Combine all metrics
+   - Format department distributions
+   - Sort by effectiveness
+
+**Final Optimized SQL Query:**
+
+<FINAL_ANSWER>
+WITH team_composition AS (
+    SELECT 
+        T1.uuid AS team_id,
+        T1.name AS team_name,
+        COUNT(DISTINCT T3.department) AS dept_count,
+        GROUP_CONCAT(DISTINCT T3.department) AS departments,
+        COUNT(DISTINCT T3.position) AS position_count,
+        COUNT(DISTINCT T2.employee_id) AS team_size
+    FROM team T1
+    JOIN team_assignment T2 ON T1.uuid = T2.team_id
+    JOIN employee T3 ON T2.employee_id = T3.uuid
+    WHERE T1.name LIKE 'CANAAN%'
+    GROUP BY T1.uuid, T1.name
+),
+team_performance AS (
+    SELECT 
+        T1.team_id,
+        COUNT(T2.uuid) AS project_count,
+        SUM(T2.revenue) AS total_revenue
+    FROM team_composition T1
+    LEFT JOIN project T2 ON T1.team_id = T2.team_id
+    WHERE STRFTIME('%Y', T2.sign_date) = '2024'
+    GROUP BY T1.team_id
+)
+SELECT 
+    tc.team_name,
+    tc.dept_count AS departments_involved,
+    tc.team_size AS total_members,
+    tc.departments AS department_list,
+    tp.project_count,
+    tp.total_revenue,
+    ROUND(tp.total_revenue / tc.dept_count, 2) AS revenue_per_department,
+    CASE 
+        WHEN tc.dept_count >= 3 AND tp.total_revenue / tc.dept_count > 
+            (SELECT AVG(total_revenue / dept_count) FROM team_composition 
+             JOIN team_performance ON team_composition.team_id = team_performance.team_id)
+        THEN 'Highly Effective'
+        WHEN tc.dept_count >= 3 
+        THEN 'Complex Structure'
+        ELSE 'Specialized'
+    END AS team_structure_type
+FROM team_composition tc
+JOIN team_performance tp ON tc.team_id = tp.team_id
+ORDER BY revenue_per_department DESC
+</FINAL_ANSWER>
+
+======= Example 7: Project Timeline Efficiency =======
+**************************
+【Table creation statements】
+CREATE TABLE project (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    area FLOAT,
+    sign_date DATE,
+    expected_completion_date DATE,
+    revenue DECIMAL(15,2)
+);
+
+CREATE TABLE work_hour (
+    uuid CHAR(36) PRIMARY KEY,
+    project_id CHAR(36),
+    employee_id CHAR(36),
+    hour DECIMAL(10,2),
+    is_reversed BOOLEAN,
+    task_description TEXT,
+    start_date DATE,
+    end_date DATE
+);
+
+CREATE TABLE employee (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    department TEXT,
+    position TEXT
+);
+
+**************************
+【Question】
+Analyze timeline efficiency for ongoing projects (expected_completion_date > current_date): show progress percentage, resource utilization rate, timeline risk indicators, and projected completion dates based on current work patterns.
+
+【Evidence】
+progress percentage = (days_elapsed / total_planned_days) * 100; resource utilization = actual_hours / (elapsed_workdays * assigned_resources * 8); timeline risk based on progress vs. resource consumption
+
+**************************
+【Answer】
+Let's analyze this using our Query Plan Guided SQL Generation approach:
+
+** Query Plan: **
+1. Identify ongoing projects
+2. Calculate timeline metrics
+3. Analyze resource usage
+4. Determine risk factors
+5. Project completion dates
+
+** Detailed Steps: **
+1. Project Status:
+   - Filter for ongoing projects
+   - Calculate elapsed and remaining time
+   - Determine progress rates
+
+2. Resource Analysis:
+   - Calculate actual work hours
+   - Determine resource allocation
+   - Measure utilization rates
+
+3. Risk Assessment:
+   - Compare progress vs. resources
+   - Identify delay patterns
+   - Calculate risk scores
+
+4. Final Assembly:
+   - Combine all metrics
+   - Calculate projections
+   - Format with insights
+
+**Final Optimized SQL Query:**
+
+<FINAL_ANSWER>
+WITH project_metrics AS (
+    SELECT 
+        T1.uuid,
+        T1.name,
+        T1.area,
+        T1.sign_date,
+        T1.expected_completion_date,
+        JULIANDAY('now') - JULIANDAY(T1.sign_date) AS days_elapsed,
+        JULIANDAY(T1.expected_completion_date) - JULIANDAY(T1.sign_date) AS planned_duration,
+        COUNT(DISTINCT T2.employee_id) AS assigned_resources,
+        SUM(T2.hour) AS actual_hours,
+        COUNT(DISTINCT T2.start_date) AS work_days
+    FROM project T1
+    LEFT JOIN work_hour T2 ON T1.uuid = T2.project_id
+    WHERE T1.expected_completion_date > DATE('now')
+    GROUP BY T1.uuid, T1.name, T1.area, T1.sign_date, T1.expected_completion_date
+)
+SELECT 
+    name AS project_name,
+    ROUND(days_elapsed * 100 / planned_duration, 2) AS progress_percentage,
+    ROUND(actual_hours / NULLIF(work_days * assigned_resources * 8, 0) * 100, 2) AS resource_utilization_rate,
+    CASE 
+        WHEN days_elapsed / planned_duration > actual_hours / (planned_duration * assigned_resources * 8)
+        THEN DATE(expected_completion_date, 
+            '+' || CAST((planned_duration * (1 - actual_hours / (planned_duration * assigned_resources * 8))) AS INTEGER) || ' days')
+        ELSE expected_completion_date
+    END AS projected_completion_date,
+    CASE 
+        WHEN days_elapsed / planned_duration > 0.8 AND actual_hours / (planned_duration * assigned_resources * 8) < 0.6 
+        THEN 'High Risk'
+        WHEN days_elapsed / planned_duration > actual_hours / (planned_duration * assigned_resources * 8) + 0.1 
+        THEN 'Medium Risk'
+        ELSE 'On Track'
+    END AS timeline_risk,
+    ROUND(actual_hours / NULLIF(days_elapsed, 0), 2) AS daily_work_rate,
+    assigned_resources AS team_size
+FROM project_metrics
+ORDER BY 
+    CASE timeline_risk 
+        WHEN 'High Risk' THEN 1 
+        WHEN 'Medium Risk' THEN 2 
+        ELSE 3 
+    END,
+    progress_percentage DESC
+</FINAL_ANSWER>
+
+======= Example 8: Project Financial Performance Analysis =======
+**************************
+【Table creation statements】
+CREATE TABLE project (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    revenue DECIMAL(15,2),
+    area FLOAT,
+    sign_date DATE,
+    expected_completion_date DATE
+);
+
+CREATE TABLE work_hour (
+    uuid CHAR(36) PRIMARY KEY,
+    project_id CHAR(36),
+    employee_id CHAR(36),
+    hour DECIMAL(10,2),
+    is_reversed BOOLEAN,
+    start_date DATE
+);
+
+CREATE TABLE employee (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    department TEXT,
+    position TEXT,
+    salary INTEGER
+);
+
+**************************
+【Question】
+Analyze financial efficiency of projects in 2024: calculate revenue per square meter, cost-efficiency ratio (based on work hours and employee salaries), and identify the most profitable project types by area range.
+
+【Evidence】
+2024 projects  refers to STRFTIME('%Y', sign_date) = '2024'; cost calculation = SUM(hour * employee.salary/160); area ranges: small (<200), medium (200-500), large (>500)
+
+**************************
+【Answer】
+Let's analyze this using our Query Plan Guided SQL Generation approach:
+
+** Query Plan: **
+1. Calculate project revenues and areas
+2. Determine employee costs
+3. Group by project size
+4. Calculate efficiency metrics
+5. Identify profitable patterns
+
+** Detailed Steps: **
+1. Revenue Analysis:
+   - Group by size category
+   - Calculate per-area metrics
+   - Handle NULL values
+
+2. Cost Calculation:
+   - Convert salary to hourly rate
+   - Account for valid work hours
+   - Calculate total costs
+
+3. Efficiency Metrics:
+   - Revenue vs. cost ratio
+   - Area utilization analysis
+   - Profitability by type
+
+4. Final Assembly:
+   - Group by size category
+   - Calculate averages
+   - Sort by efficiency
+
+**Final Optimized SQL Query:**
+
+<FINAL_ANSWER>
+WITH project_costs AS (
+    SELECT 
+        T1.uuid AS project_id,
+        T1.name,
+        T1.revenue,
+        T1.area,
+        SUM(T2.hour * T3.salary / 160.0) AS labor_cost
+    FROM project T1
+    JOIN work_hour T2 ON T1.uuid = T2.project_id
+    JOIN employee T3 ON T2.employee_id = T3.uuid
+    WHERE STRFTIME('%Y', T1.sign_date) = '2024'
+    GROUP BY T1.uuid, T1.name, T1.revenue, T1.area
+),
+project_metrics AS (
+    SELECT 
+        project_id,
+        name,
+        revenue,
+        area,
+        labor_cost,
+        CASE 
+            WHEN area < 200 THEN 'Small'
+            WHEN area <= 500 THEN 'Medium'
+            ELSE 'Large'
+        END AS size_category,
+        ROUND(revenue / NULLIF(area, 0), 2) AS revenue_per_sqm,
+        ROUND(revenue / NULLIF(labor_cost, 0), 2) AS revenue_cost_ratio
+    FROM project_costs
+    WHERE area > 0
+)
+SELECT 
+    size_category,
+    COUNT(*) AS project_count,
+    ROUND(AVG(area), 2) AS avg_area,
+    ROUND(AVG(revenue), 2) AS avg_revenue,
+    ROUND(AVG(revenue_per_sqm), 2) AS avg_revenue_per_sqm,
+    ROUND(AVG(revenue_cost_ratio), 2) AS avg_efficiency_ratio,
+    ROUND(SUM(revenue) / SUM(labor_cost), 2) AS category_profitability,
+    FIRST_VALUE(name) OVER (
+        PARTITION BY size_category 
+        ORDER BY revenue_cost_ratio DESC
+    ) AS most_efficient_project
+FROM project_metrics
+GROUP BY size_category
+ORDER BY avg_efficiency_ratio DESC
+</FINAL_ANSWER>
+
+======= Example 9: Quality and Timeline Compliance Analysis =======
+**************************
+【Table creation statements】
+CREATE TABLE project (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    sign_date DATE,
+    expected_completion_date DATE,
+    area FLOAT,
+    revenue DECIMAL(15,2)
+);
+
+CREATE TABLE work_hour (
+    uuid CHAR(36) PRIMARY KEY,
+    project_id CHAR(36),
+    employee_id CHAR(36),
+    hour DECIMAL(10,2),
+    is_reversed BOOLEAN,
+    task_description TEXT,
+    start_date DATE,
+    end_date DATE
+);
+
+CREATE TABLE employee (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    department TEXT,
+    position TEXT,
+    subdepartment TEXT
+);
+
+**************************
+【Question】
+For design department projects (设计管理部), analyze quality metrics: timeline adherence rate, revision frequency (based on work hours), department workload distribution, and identify patterns in successful project delivery.
+
+【Evidence】
+design department refers to department LIKE '%设计管理部%'; revision frequency = SUM(hour) / total_hours * 100; timeline adherence = completed within expected_completion_date
+
+**************************
+【Answer】
+Let's analyze this using our Query Plan Guided SQL Generation approach:
+
+** Query Plan: **
+1. Filter design department projects
+2. Calculate quality metrics
+3. Analyze revision patterns
+4. Assess timeline compliance
+5. Identify success factors
+
+** Detailed Steps: **
+1. Project Selection:
+   - Filter by department
+   - Get project timelines
+   - Calculate completion rates
+
+2. Quality Analysis:
+   - Calculate revision rates
+   - Analyze workload patterns
+   - Determine success factors
+
+3. Timeline Assessment:
+   - Compare actual vs expected
+   - Calculate adherence rates
+   - Identify delay patterns
+
+4. Final Assembly:
+   - Combine all metrics
+   - Generate insights
+   - Format output clearly
+
+**Final Optimized SQL Query:**
+
+<FINAL_ANSWER>
+WITH project_quality AS (
+    SELECT 
+        T1.uuid AS project_id,
+        T1.name,
+        T1.area,
+        SUM(T3.hour) AS total_hours,
+        COUNT(DISTINCT T3.employee_id) AS team_size,
+        JULIANDAY(T1.expected_completion_date) - JULIANDAY(T1.sign_date) AS planned_duration,
+        CASE 
+            WHEN MAX(T3.end_date) <= T1.expected_completion_date THEN 1 
+            ELSE 0 
+        END AS on_time_delivery
+    FROM project T1
+    JOIN work_hour T3 ON T1.uuid = T3.project_id
+    JOIN employee T4 ON T3.employee_id = T4.uuid
+    WHERE T4.department LIKE '%设计管理部%'
+    GROUP BY T1.uuid, T1.name, T1.area, T1.expected_completion_date, T1.sign_date
+),
+success_patterns AS (
+    SELECT 
+        CASE 
+            WHEN area < 300 THEN 'Small'
+            WHEN area < 600 THEN 'Medium'
+            ELSE 'Large'
+        END AS project_size,
+        COUNT(*) AS project_count,
+        ROUND(AVG(on_time_delivery) * 100, 2) AS on_time_rate,
+        ROUND(AVG(total_hours / NULLIF(area, 0)), 2) AS hours_per_sqm
+    FROM project_quality
+    GROUP BY project_size
+)
+SELECT 
+    pq.name AS project_name,
+    ROUND(pq.total_hours / NULLIF(pq.area, 0), 2) AS effort_density,
+    pq.team_size,
+    CASE 
+        WHEN pq.total_hours / NULLIF(pq.area, 0) <= 
+            (SELECT AVG(total_hours / area) FROM project_quality)
+        AND pq.on_time_delivery = 1 
+        THEN 'High Quality'
+        WHEN pq.on_time_delivery = 1 
+        THEN 'Good Timeline'
+        WHEN pq.total_hours / NULLIF(pq.area, 0) <= 
+            (SELECT AVG(total_hours / area) FROM project_quality)
+        THEN 'Good Quality'
+        ELSE 'Needs Improvement'
+    END AS quality_assessment,
+    sp.on_time_rate AS category_on_time_rate,
+    sp.hours_per_sqm AS category_avg_hours_per_sqm
+FROM project_quality pq
+JOIN success_patterns sp ON 
+    CASE 
+        WHEN pq.area < 300 THEN 'Small'
+        WHEN pq.area < 600 THEN 'Medium'
+        ELSE 'Large'
+    END = sp.project_size
+ORDER BY 
+    CASE quality_assessment
+        WHEN 'High Quality' THEN 1
+        WHEN 'Good Timeline' THEN 2
+        WHEN 'Good Quality' THEN 3
+        ELSE 4
+    END,
+    effort_density ASC
+</FINAL_ANSWER>
+
+======= Example 10: Resource Allocation and Operational Efficiency =======
+**************************
+【Table creation statements】
+CREATE TABLE project (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    team_id TEXT,
+    sign_date DATE,
+    expected_completion_date DATE,
+    revenue DECIMAL(15,2),
+    area FLOAT
+);
+
+CREATE TABLE work_hour (
+    uuid CHAR(36) PRIMARY KEY,
+    project_id CHAR(36),
+    employee_id CHAR(36),
+    hour DECIMAL(10,2),
+    is_reversed BOOLEAN,
+    task_description TEXT,
+    start_date DATE,
+    end_date DATE
+);
+
+CREATE TABLE employee (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    department TEXT,
+    position TEXT,
+    subdepartment TEXT
+);
+
+CREATE TABLE team_assignment (
+    uuid TEXT PRIMARY KEY,
+    team_id TEXT,
+    employee_id TEXT
+);
+
+**************************
+【Question】
+Analyze operational efficiency across departments: show resource allocation patterns, identify peak workload periods, calculate optimal team sizes, and suggest resource balancing opportunities for Q3 2024.
+
+【Evidence】
+Q3 2024 refers to start_date BETWEEN '2024-07-01' AND '2024-09-30'; workload = daily_hours/8 * 100; optimal team size based on historical performance where workload between 75% and 85%
+
+**************************
+【Answer】
+Let's analyze this using our Query Plan Guided SQL Generation approach:
+
+** Query Plan: **
+1. Analyze daily workload patterns
+2. Calculate department efficiency
+3. Determine optimal staffing
+4. Identify resource imbalances
+5. Generate recommendations
+
+** Detailed Steps: **
+1. Workload Analysis:
+   - Calculate daily work hours
+   - Determine peak periods
+   - Analyze utilization rates
+
+2. Team Size Optimization:
+   - Analyze historical performance
+   - Calculate optimal ratios
+   - Determine efficiency ranges
+
+3. Resource Balance:
+   - Compare departments
+   - Identify bottlenecks
+   - Calculate transfer opportunities
+
+4. Final Assembly:
+   - Combine all metrics
+   - Generate recommendations
+   - Format insights clearly
+
+**Final Optimized SQL Query:**
+
+<FINAL_ANSWER>
+WITH daily_workload AS (
+    SELECT 
+        T1.department,
+        T2.start_date,
+        COUNT(DISTINCT T2.employee_id) AS active_employees,
+        COUNT(DISTINCT T2.project_id) AS active_projects,
+        SUM(T2.hour) AS valid_hours
+    FROM employee T1
+    JOIN work_hour T2 ON T1.uuid = T2.employee_id
+    WHERE T2.start_date BETWEEN '2024-07-01' AND '2024-09-30'
+    GROUP BY T1.department, T2.start_date
+),
+department_metrics AS (
+    SELECT 
+        department,
+        COUNT(DISTINCT start_date) AS working_days,
+        AVG(active_employees) AS avg_team_size,
+        MAX(active_employees) AS max_team_size,
+        AVG(active_projects) AS avg_concurrent_projects,
+        AVG(valid_hours / (active_employees * 8) * 100) AS avg_utilization,
+        MAX(valid_hours / (active_employees * 8) * 100) AS peak_utilization,
+        MIN(valid_hours / (active_employees * 8) * 100) AS min_utilization
+    FROM daily_workload
+    GROUP BY department
+),
+optimal_metrics AS (
+    SELECT 
+        department,
+        AVG(active_employees) AS optimal_size
+    FROM daily_workload
+    WHERE valid_hours / (active_employees * 8) * 100 BETWEEN 75 AND 85
+    GROUP BY department
+)
+SELECT 
+    dm.department,
+    ROUND(dm.avg_team_size, 1) AS current_team_size,
+    ROUND(om.optimal_size, 1) AS recommended_team_size,
+    ROUND(dm.avg_concurrent_projects, 1) AS avg_projects,
+    ROUND(dm.avg_utilization, 1) AS avg_utilization_percent,
+    ROUND(dm.peak_utilization, 1) AS peak_utilization_percent,
+    CASE 
+        WHEN dm.avg_utilization > 85 THEN 
+            CEIL((dm.avg_utilization - 80) * dm.avg_team_size / 100)
+        WHEN dm.avg_utilization < 75 THEN 
+            FLOOR((75 - dm.avg_utilization) * dm.avg_team_size / 100) * -1
+        ELSE 0 
+    END AS resource_adjustment_needed,
+    CASE 
+        WHEN dm.avg_utilization > 85 THEN 'Overloaded'
+        WHEN dm.avg_utilization < 75 THEN 'Underutilized'
+        ELSE 'Optimal'
+    END AS status,
+    CASE 
+        WHEN dm.peak_utilization - dm.min_utilization > 30 THEN 'High'
+        WHEN dm.peak_utilization - dm.min_utilization > 15 THEN 'Medium'
+        ELSE 'Low'
+    END AS workload_volatility,
+    ROUND(dm.avg_concurrent_projects / NULLIF(dm.avg_team_size, 0), 2) AS projects_per_person
+FROM department_metrics dm
+LEFT JOIN optimal_metrics om ON dm.department = om.department
+ORDER BY 
+    CASE status
+        WHEN 'Overloaded' THEN 1
+        WHEN 'Underutilized' THEN 2
+        ELSE 3
+    END,
+    avg_utilization_percent DESC
+</FINAL_ANSWER>
+
+======= Example 11: Last Week Performance Analysis =======
+**************************
+【Table creation statements】
+CREATE TABLE project (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    sign_date DATE,
+    revenue DECIMAL(15,2),
+    area FLOAT
+);
+
+CREATE TABLE work_hour (
+    uuid CHAR(36) PRIMARY KEY,
+    project_id CHAR(36),
+    employee_id CHAR(36),
+    hour DECIMAL(10,2),
+    is_reversed BOOLEAN,
+    start_date DATE
+);
+
+CREATE TABLE employee (
+    uuid TEXT PRIMARY KEY,
+    name TEXT,
+    department TEXT,
+    position TEXT
+);
+
+**************************
+【Question】
+Calculate last week's performance metrics: total work hours, project count, revenue, and employee participation. Note that weeks run from Tuesday to Tuesday.
+
+【Evidence】
+last week refers to previous completed Tuesday-Tuesday period (2024-11-26 to 2024-12-03); ; employee participation means COUNT(DISTINCT employee_id)
+
+**************************
+【Answer】
+Let's analyze this using our Query Plan Guided SQL Generation approach:
+
+** Query Plan: **
+1. Determine the last week's date range (Tuesday to Tuesday)
+2. Calculate work hour metrics within that range
+3. Join with projects for revenue data
+4. Calculate employee participation
+5. Format final metrics
+
+** Detailed Steps: **
+1. Date Range Definition:
+   - Calculate previous Tuesday based on current date
+   - Handle week boundary conditions
+   - Use SQLite date functions
+
+2. Work Hour Analysis:
+   - Sum valid hours
+   - Count distinct employees
+   - Handle NULL values
+
+3. Project Metrics:
+   - Count active projects
+   - Sum project revenue
+   - Join with work hours
+
+4. Final Assembly:
+   - Combine all metrics
+   - Format outputs
+   - Include date range validation
+
+**Final Optimized SQL Query:**
+
+<FINAL_ANSWER>
+WITH date_range AS (
+    SELECT 
+        date('now', 
+            '-' || (
+                CASE 
+                    WHEN CAST(strftime('%w', 'now') AS INTEGER) <= 2 
+                    THEN CAST(strftime('%w', 'now') AS INTEGER) + 12
+                    ELSE CAST(strftime('%w', 'now') AS INTEGER) + 5
+                END
+            ) || ' days') as start_date,
+        date('now', 
+            '-' || (
+                CASE 
+                    WHEN CAST(strftime('%w', 'now') AS INTEGER) <= 2 
+                    THEN CAST(strftime('%w', 'now') AS INTEGER) + 5
+                    ELSE CAST(strftime('%w', 'now') AS INTEGER) - 2
+                END
+            ) || ' days') as end_date
+),
+weekly_metrics AS (
+    SELECT 
+        COUNT(DISTINCT T1.project_id) as project_count,
+        COUNT(DISTINCT T1.employee_id) as employee_count,
+        SUM(T1.hour) as total_hours,
+        SUM(T2.revenue) as total_revenue
+    FROM work_hour T1
+    JOIN project T2 ON T1.project_id = T2.uuid
+    CROSS JOIN date_range dr
+    WHERE date(T1.start_date) >= dr.start_date 
+    AND date(T1.start_date) < dr.end_date
+)
+SELECT 
+    (SELECT start_date || ' to ' || end_date FROM date_range) as week_range,
+    project_count as active_projects,
+    employee_count as active_employees,
+    ROUND(total_hours, 2) as work_hours,
+    ROUND(total_revenue, 2) as revenue,
+    ROUND(total_revenue / NULLIF(total_hours, 0), 2) as revenue_per_hour,
+    ROUND(total_hours / NULLIF(employee_count, 0), 2) as hours_per_employee
+FROM weekly_metrics;
+</FINAL_ANSWER>
+
+Pseudo-code to calculate precise labor cost:
+WITH quarterly_hours AS (
+    -- Step 1: Aggregate total hours for the quarter
+    SELECT 
+        employee_id,
+        SUM(hour) AS total_hours_quarter
+    FROM 
+        work_hour
+    WHERE 
+        start_date >= 'mm-dd-yyyy' AND end_date <= 'mm-dd-yyyy'  -- Specify the time range of the quarter input in the question
+    GROUP BY 
+        employee_id
+),
+precise_labor AS (
+    -- Step 2: Calculate precise hours per month and precise labor cost
+    SELECT 
+        q.employee_id,
+        q.total_hours_quarter,
+        q.total_hours_quarter / 3 AS precise_hours_monthly, -- Divide total hours by 3 months
+        e.salary,
+        e.salary / (q.total_hours_quarter / 3) AS precise_labor_cost -- Calculate cost
+    FROM 
+        quarterly_hours q
+    JOIN 
+        employee e ON q.employee_id = e.uuid
+)
+-- Step 3: Display results
+SELECT 
+    employee_id,
+    total_hours_quarter,
+    ROUND(precise_hours_monthly, 2) AS precise_hours_monthly,
+    salary,
+    ROUND(precise_labor_cost, 2) AS precise_labor_cost
+FROM 
+    precise_labor;
+
+Pseudo-code to calculate one month’s estimated labor cost:
+WITH total_hours_and_employees AS (
+    -- Step 1: Calculate total hours worked and total number of employees for the specified week
+    SELECT 
+        COUNT(DISTINCT employee_id) AS total_employees, 
+        SUM(hour) AS total_hours
+    FROM 
+        work_hour
+    WHERE 
+        start_date >= 'mm-dd-yyyy' AND end_date <= 'mm-dd-yyyy'  -- Specify the date range
+),
+average_salary AS (
+    -- Step 2: Calculate the average monthly salary of employees
+    SELECT 
+        AVG(salary) AS average_monthly_salary
+    FROM 
+        employee
+),
+estimated_hourly_cost AS (
+    -- Step 3: Calculate average hours worked and estimated hourly labor cost
+    SELECT 
+        t.total_hours / t.total_employees AS average_hours_worked, -- Calculate average hours worked
+        a.average_monthly_salary / (t.total_hours / t.total_employees) AS estimated_hourly_labor_cost -- Calculate estimated hourly labor cost
+    FROM 
+        total_hours_and_employees t
+    CROSS JOIN 
+        average_salary a
+)
+-- Step 4: Display results
+SELECT 
+    ROUND(average_hours_worked, 2) AS average_hours_worked,
+    ROUND(estimated_hourly_labor_cost, 2) AS estimated_hourly_labor_cost
+FROM 
+    estimated_hourly_cost;
+
+Pseudo-code to calculate one week’s estimated labor cost:
+WITH total_hours_and_employees AS (
+    -- Step 1: Calculate total hours worked and total number of employees for the specified week
+    SELECT 
+        COUNT(DISTINCT employee_id) AS total_employees, 
+        SUM(hour) AS total_hours
+    FROM 
+        work_hour
+    WHERE 
+        start_date >= 'mm-dd-yyyy' AND end_date <= 'mm-dd-yyyy'  -- Specify the date range
+),
+average_salary AS (
+    -- Step 2: Calculate the average monthly salary of employees
+    SELECT 
+        AVG(salary)/4 AS average_weekly_salary
+    FROM 
+        employee
+),
+estimated_hourly_cost AS (
+    -- Step 3: Calculate average hours worked and estimated hourly labor cost
+    SELECT 
+        t.total_hours / t.total_employees AS average_hours_worked, -- Calculate average hours worked
+        a.average_weekly_salary / (t.total_hours / t.total_employees) AS estimated_hourly_labor_cost -- Calculate estimated hourly labor cost
+    FROM 
+        total_hours_and_employees t
+    CROSS JOIN 
+        average_salary a
+)
+-- Step 4: Display results
+SELECT 
+    ROUND(average_hours_worked, 2) AS average_hours_worked,
+    ROUND(estimated_hourly_labor_cost, 2) AS estimated_hourly_labor_cost
+FROM 
+    estimated_hourly_cost;
+Written Explanation:
+Precise Labor Cost
+Purpose:
+
+Used for finalized accounting to accurately report costs on completed projects, particularly when projects span multiple quarters.
+ 
+Calculation: 
+•           Individual Hourly Rate: Divide the total salary for the quarter by total hours worked.
+◦           Formula: Individual Hourly Rate = Total Salary for Quarter / Total Hours Worked
+•           Project Labor Cost: Multiply the individual hourly rate by the hours worked on a specific project.
+◦           Formula: Project Labor Cost = Individual Hourly Rate * Project Hours
+When to Use: 
+•           Completed Projects: Ensures precise financial reporting for specific periods.
+•           Multi-Quarter Projects: Break down into quarterly segments to account for hourly rate changes.
+Example:
+ For an employee who worked 50 hours on Project XYZ in Q1 at 111 RMB/hour and 35 hours in Q2 at 135 RMB/hour:
+•           Q1 Cost: 111 RMB/hour * 50 hours = 5,550 RMB
+•           Q2 Cost: 135 RMB/hour * 35 hours = 4,725 RMB
+•           Total Project Cost: 5,550 RMB + 4,725 RMB = 10,275 RMB
+Estimated Labor Cost
+Purpose:
+
+ Provides a quick estimate for budget management and planning during ongoing projects.
+ 
+Calculation: 
+1.       Average Hours Worked: Calculate by dividing total hours worked by all employees by the number of employees.
+◦          Formula: Average Hours Worked = Total Number of Hours / Total Number of Employees
+2.       Estimated Hourly Labor Cost: Divide the average monthly salary by average hours worked.
+◦          Formula: Estimated Hourly Labor Cost = Average Monthly Salary / Average Hours Worked
+When to Use: 
+•           Ongoing Projects: Useful for budget forecasting while the project is in progress.
+Example:
+ If the average monthly salary is 20,000 RMB:
+1.       Average Hours Worked: Suppose 4000 hours were worked by 50 employees.
+◦          Average Hours Worked = 4000 hours / 50 employees = 80 hours
+2.       Estimated Hourly Labor Cost: 20,000 RMB / 80 hours = 250 RMB/hour
+Apply this rate to forecast project costs based on expected hours an individual will work.
+ 
+Summary
+•           Precise Labor Cost: Best for past projects where accuracy is crucial for financial reporting.
+•           Estimated Labor Cost: Ideal for current projects where budget estimates guide planning and resource allocation.
+
+
+Now is the real question, following the instruction and examples, generate the SQL with Recursive Divide-and-Conquer approach. Make sure you only output one single query.
+**************************
+【Table creation statements】
+{DATABASE_SCHEMA}
+
+**************************
+【Question】
+Question: 
+{QUESTION}
+
+Evidence:
+{HINT}
+
+**************************
+【Answer】
+Repeating the question and hint, and generating the SQL with Recursive Divide-and-Conquer
+</FINAL_ANSWER>

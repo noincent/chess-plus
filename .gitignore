@@ -8,3 +8,4 @@ src/__pycache__/
 __pycache__/
 *.log
 back_up.txt
+logs/

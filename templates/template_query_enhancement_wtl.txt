@@ -16,6 +16,17 @@ Enhancement priorities:
    - Output only the enhanced question without the structured format
 
 2. Schema-Based Improvements:
+   - Department rollup rules:
+      * Always include both department and subdepartment in groupings
+      * Calculate statistics at both levels independently
+      * Handle NULL subdepartments appropriately
+      * For total hours/costs:
+         - Sum subdepartment values for department totals
+         - Include direct department assignments separately
+   - When calculating averages by department/subdepartment:
+      * Count employees per department using employee table, not work entries
+      * Use employee.department and employee.subdepartment for grouping
+      * Calculate: total_hours / number_of_employees, not total_hours / entry_count
    - Add missing table joins based on foreign key relationships
    - Clarify ambiguous columns using example values
    - Handle NULL values in critical columns
@@ -35,7 +46,26 @@ Enhancement priorities:
      * 内审 -> 内审组
      * AI -> AI团队
 
-2. Query Clarification:
+3. Query Clarification:
+   - For work stage searches:
+      * Include stage number prefix (e.g., '1. 投标阶段' not just '投标阶段')
+      * Search both Chinese and English stage names
+   - For text searches in Chinese:
+      * Search for both Chinese keywords (e.g., '宣传', '销售') and English equivalents 
+      * Include all relevant Chinese characters when searching (e.g., both '丽娜' and 'Lina')
+   - For labor cost calculations:
+      * Base monthly cost on employee.salary, not work_hour * salary
+      * When calculating project labor costs:
+         - Use (work_hours / total_project_hours) * project_duration_months * monthly_salary
+         - Include NULL handling for missing salary or hours data
+   - For total labor costs:
+      * Consider only the actual days worked in partial months
+      * Pro-rate salary based on actual working days
+   - Date range calculations:
+      * For 'last month' queries: Use DATEADD/DATE_SUB from current date
+      * For quarter queries: Map Q1=01-03, Q2=04-06, Q3=07-09, Q4=10-12
+      * Handle date ranges spanning multiple periods
+      * Always include time period boundaries in output for clarity
    - Resolve ambiguous terms using schema examples
    - Add missing but implied conditions
    - Standardize terminology to match database
@@ -218,8 +248,6 @@ Referenced Tables: {REFERENCED_TABLES}
 Referenced Columns: {REFERENCED_COLUMNS}
 Database schema, values: ** Database Schema: **
 Tables in the database: client, project, team, employee, team_assignment, work_hour
-
-Tables in the database: client, project, team, employee, team_assignment, sqlite_sequence, work_hour
 
 Schema for table 'client':
 Columns:

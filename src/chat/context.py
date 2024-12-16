@@ -121,7 +121,6 @@ class ChatContext:
                     sql_focused.append({
                         'question': entry['question'],
                         'sql': entry['sql_query'],
-                        'result': entry['query_result'],
                         'timestamp': entry['timestamp']
                     })
             return {

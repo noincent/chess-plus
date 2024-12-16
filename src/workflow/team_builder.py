@@ -44,12 +44,10 @@ class CHESSTeamBuilder:
         
         # Create sequential connections between agents
         connections = [
-            ("chat_context_analyzer", "information_retriever"),
-            ("information_retriever", "candidate_generator"),
+            ("chat_context_analyzer", "candidate_generator"),
             ("candidate_generator", "unit_tester"),
             ("unit_tester", "sql_executor"),
-            ("sql_executor", "response_generator"),
-        ]
+                    ]
         self._add_connections(connections)
 
     def _add_agents(self, agents: Dict[str, Dict[str, Any]]) -> None:

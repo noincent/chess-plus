@@ -45,7 +45,7 @@ def get_user_interface(user_id: str) -> CHESSInterface:
         if user_id not in user_interfaces:
             # Use the default config name but create a unique interface
             user_interfaces[user_id] = CHESSInterface(
-                config_name="CHESS_IR_CG_UT",
+                config_name="wtl",
                 db_mode='dev'
             )
         return user_interfaces[user_id]

@@ -57,7 +57,7 @@ class CHESSInterface:
         
         # Initialize components
         self.active_sessions: Dict[str, ChatSession] = {}
-        response_generator_config = self.config.get('team_agents', {}).get('response_generator', {})
+        response_generator_config = self.config.get('response_settings', {})
         self.response_generator = ResponseGenerator(response_generator_config)
         self.response_formatter = ResponseFormatter()
         

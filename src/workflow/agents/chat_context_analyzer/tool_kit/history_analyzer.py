@@ -25,24 +25,26 @@ class HistoryAnalyzer(Tool):
         # Store original question
         state.task.original_question = state.task.question
         
-        # If this is the first question (no chat context), return original question
-        if not state.chat_context or not state.chat_context.conversation_history:
-            logging.info("[HistoryAnalyzer] First question in session, no history to analyze")
-            logging.info(f"[HistoryAnalyzer] Passing through original question: {state.task.question}")
-            logging.info("=" * 80)
-            return
-            
-        # Log conversation context that will be used for analysis
-        conversation_summary = state.chat_context.get_conversation_summary(format_type="sql_focused") if state.chat_context else ""
-        logging.info("[HistoryAnalyzer] Using conversation context for analysis:")
-        logging.info(f"Conversation Summary (SQL focused):\n{conversation_summary}")
+        # Get conversation context, handle first question case
+        conversation_summary = ""
+        referenced_tables = []
+        referenced_columns = []
+        
+        if state.chat_context and state.chat_context.conversation_history:
+            conversation_summary = state.chat_context.get_conversation_summary(format_type="sql_focused")
+            referenced_tables = list(state.chat_context.referenced_tables)
+            referenced_columns = list(state.chat_context.referenced_columns)
+            logging.info("[HistoryAnalyzer] Using existing conversation context for analysis:")
+            logging.info(f"Conversation Summary (SQL focused):\n{conversation_summary}")
+        else:
+            logging.info("[HistoryAnalyzer] First question in session, proceeding with empty history")
       
         # Prepare request focusing on conversation history analysis
         request_kwargs = {
             "CURRENT_QUESTION": state.task.question,
             "CONVERSATION_HISTORY": conversation_summary,
-            "REFERENCED_TABLES": list(state.chat_context.referenced_tables) if state.chat_context else [],
-            "REFERENCED_COLUMNS": list(state.chat_context.referenced_columns) if state.chat_context else []
+            "REFERENCED_TABLES": referenced_tables,
+            "REFERENCED_COLUMNS": referenced_columns
         }
         
         # Call LLM to analyze history

@@ -2,11 +2,29 @@ from typing import Optional, Tuple
 import sqlparse
 import re
 from anthropic import Anthropic
+import json
+import os
+from datetime import datetime
+import traceback
 
 class SQLTranslator:
     def __init__(self):
         self.client = Anthropic()
+        self.log_dir = os.path.join(os.path.dirname(__file__), "logs", "translations")
+        os.makedirs(self.log_dir, exist_ok=True)
         
+    def _create_log_file(self) -> str:
+        """Create a unique log file name based on timestamp"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        return os.path.join(self.log_dir, f"translation_{timestamp}.json")
+        
+    def _log_translation_attempt(self, log_data: dict):
+        """Save translation attempt details to a log file"""
+        log_file = self._create_log_file()
+        with open(log_file, 'w') as f:
+            json.dump(log_data, f, indent=2)
+        return log_file
+
     def create_prompt(self, sqlite_query: str) -> str:
         return f"""Translate this SQLite query to MySQL syntax. Only respond with the translated query, no explanations:
 
@@ -65,36 +83,64 @@ Remember these translation rules:
         Translate SQLite query to MySQL using Anthropic's Claude
         Returns: (translated_query, list_of_warnings)
         """
-        warnings = []
+        log_data = {
+            "timestamp": datetime.now().isoformat(),
+            "input_query": sqlite_query,
+            "status": "started",
+            "warnings": [],
+            "errors": None,
+            "translated_query": None
+        }
         
-        # Validate input query
-        validation_error = self.validate_query(sqlite_query)
-        if validation_error:
-            raise ValueError(f"Invalid input query: {validation_error}")
-            
-        # Generate prompt and get LLM response
-        prompt = self.create_prompt(sqlite_query)
         try:
-            message = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=1000,
-                temperature=0,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
-            )
-            mysql_query = message.content[0].text.strip()
+            # Validate input query
+            validation_error = self.validate_query(sqlite_query)
+            if validation_error:
+                log_data["status"] = "validation_error"
+                log_data["errors"] = f"Invalid input query: {validation_error}"
+                self._log_translation_attempt(log_data)
+                raise ValueError(log_data["errors"])
+                
+            # Generate prompt and get LLM response
+            prompt = self.create_prompt(sqlite_query)
+            try:
+                message = self.client.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    max_tokens=1000,
+                    temperature=0,
+                    messages=[
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                mysql_query = message.content[0].text.strip()
+                log_data["translated_query"] = mysql_query
+                
+            except Exception as e:
+                log_data["status"] = "llm_error"
+                log_data["errors"] = f"LLM translation failed: {str(e)}\n{traceback.format_exc()}"
+                self._log_translation_attempt(log_data)
+                raise RuntimeError(log_data["errors"])
+                
+            # Validate translated query
+            validation_error = self.validate_query(mysql_query)
+            if validation_error:
+                log_data["status"] = "validation_error"
+                log_data["errors"] = f"Invalid translated query: {validation_error}"
+                self._log_translation_attempt(log_data)
+                raise ValueError(log_data["errors"])
+                
+            # Verify translation
+            verification_error = self.verify_translation(sqlite_query, mysql_query)
+            if verification_error:
+                log_data["warnings"].append(verification_error)
+            
+            log_data["status"] = "success"
+            log_file = self._log_translation_attempt(log_data)
+            return mysql_query, log_data["warnings"]
+            
         except Exception as e:
-            raise RuntimeError(f"LLM translation failed: {str(e)}")
-            
-        # Validate translated query
-        validation_error = self.validate_query(mysql_query)
-        if validation_error:
-            raise ValueError(f"Invalid translated query: {validation_error}")
-            
-        # Verify translation
-        verification_error = self.verify_translation(sqlite_query, mysql_query)
-        if verification_error:
-            warnings.append(verification_error)
-            
-        return mysql_query, warnings
+            if "status" not in log_data or log_data["status"] == "started":
+                log_data["status"] = "unexpected_error"
+                log_data["errors"] = f"Unexpected error: {str(e)}\n{traceback.format_exc()}"
+                self._log_translation_attempt(log_data)
+            raise
