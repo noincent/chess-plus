@@ -77,6 +77,102 @@ Output 3:
     "enhanced_question": "What is the salary of a person that worked the most last week?",
 }}
 
+Example 4:
+Input 1:
+ORIGINAL_QUESTION:
+[EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[QUESTION] Who worked the most on average this quarter?
+CONVERSATION_HISTORY: None
+
+Output 1:
+{{
+    "reasoning": "Independent question about all employees' average work hours. No personal context needed. Time period 'this quarter' should be tracked for follow-ups.",
+    "enhanced_question": "Find the employee who has the highest average hours worked in the current quarter"
+}}
+
+Input 2:
+ORIGINAL_QUESTION:
+[EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[QUESTION] How many projects did this person do?
+CONVERSATION_HISTORY: Previous query: "Who worked the most on average this quarter?"
+Previous result: "Employee: Sarah Chen, Average Hours: 42.5"
+
+Output 2:
+{{
+    "reasoning": "Follow-up question referencing the employee (Sarah Chen) identified in previous query. Should maintain quarterly time period and include employee context.",
+    "enhanced_question": "Count the number of projects that Sarah Chen worked on during the current quarter"
+}}
+
+Example 5:
+Input 1:
+ORIGINAL_QUESTION:
+[EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[QUESTION] What 5 projects have the least reported hours?
+CONVERSATION_HISTORY: None
+
+Output 1:
+{{
+    "reasoning": "Independent question about project hours. No personal context needed. Need to track the set of 5 projects for follow-up questions.",
+    "enhanced_question": "Find the 5 projects with the lowest total reported hours"
+}}
+
+Input 2:
+ORIGINAL_QUESTION:
+[EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[QUESTION] Which of these projects has the highest revenues?
+CONVERSATION_HISTORY: Previous query: "What 5 projects have the least reported hours?"
+Previous result: "Projects: Project A, Project B, Project C, Project D, Project E"
+
+Output 2:
+{{
+    "reasoning": "'these projects' refers to the 5 projects identified in previous query. Need to maintain this specific project set context.",
+    "enhanced_question": "Find the project with the highest revenue among the projects {Project A, Project B, Project C, Project D, Project E}"
+}}
+
+Input 3:
+ORIGINAL_QUESTION:
+[EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[QUESTION] Which one had the most reported hours?
+CONVERSATION_HISTORY: Previous queries: 
+1. "What 5 projects have the least reported hours?"
+2. "Which of these projects has the highest revenues?"
+Previous results:
+1. Projects: Project A, Project B, Project C, Project D, Project E
+2. Highest revenue project: Project C
+
+Output 3:
+{{
+    "reasoning": "Still operating on the same set of 5 projects from first query. Looking for hours comparison within this specific set.",
+    "enhanced_question": "Find the project with the highest reported hours among the projects {Project A, Project B, Project C, Project D, Project E}"
+}}
+
+Example 6:
+Input 1:
+ORIGINAL_QUESTION:
+[EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[QUESTION] What bidding projects is 丽娜 working on?
+CONVERSATION_HISTORY: None
+
+Output 1:
+{{
+    "reasoning": "Independent question about specific employee (丽娜) and project type (bidding). Need to track both employee and project set context.",
+    "enhanced_question": "Find all projects in bidding status that employee 丽娜 is currently working on"
+}}
+
+Input 2:
+ORIGINAL_QUESTION:
+[EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[QUESTION] Which of these bidding projects has the most hours?
+CONVERSATION_HISTORY: Previous query: "What bidding projects is 丽娜 working on?"
+Previous result: "Projects: Bid Project X, Bid Project Y, Bid Project Z"
+
+Output 2:
+{{
+    "reasoning": "'these bidding projects' refers to specific set of projects from previous query. Maintain context of both employee 丽娜 and bidding status.",
+    "enhanced_question": "Find the project with the most reported hours among 丽娜's bidding projects {Bid Project X, Bid Project Y, Bid Project Z}"
+}}
+
+
 Now the actual question:
 Current Question: {CURRENT_QUESTION}
 Conversation History: {CONVERSATION_HISTORY}
