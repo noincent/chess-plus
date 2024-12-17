@@ -5,6 +5,7 @@ Your task is to analyze the conversation history and extract relevant context th
 You will receive:
 - ORIGINAL_QUESTION: Original question structure containing:
   - [EMPLOYEE_ID]: The ID of the user asking the question
+  - [DATE]: The date and time of the question
   - [QUESTION]: The actual question
 - CONVERSATION_HISTORY: Previous conversation history with SQL queries
 
@@ -32,7 +33,13 @@ Analysis priorities:
    - Track time periods mentioned in previous queries
    - Identify if time constraints should carry over
    - Note any temporal relationships between queries
-
+   - Use [DATE] from ORIGINAL_QUESTION to resolve relative time references:
+      "last week", "previous week" - Monday to Sunday of the previous week relative to [DATE]
+      "this week" - Monday to Sunday of the current week relative to [DATE]
+      "this month" - current month of [DATE]
+      "last month" - previous month from [DATE]
+      "this quarter" - current quarter based on [DATE]
+      "year to date" - from January 1st to [DATE]
 Output Format:
 {{
     "reasoning": "Explain how you analyzed the conversation history to extract relevant context",
@@ -44,6 +51,7 @@ Examples:
 Input 1:
 ORIGINAL_QUESTION:
 [EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[DATE] 12/17/2024, 6:52:21 PM
 [QUESTION] Show my projects
 CONVERSATION_HISTORY: None
 
@@ -56,6 +64,7 @@ Output 1:
 Input 2:
 ORIGINAL_QUESTION:
 [EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[DATE] 12/17/2024, 6:52:21 PM
 [QUESTION] who worked the most last week?
 CONVERSATION_HISTORY: None
 
@@ -68,6 +77,7 @@ Output 2:
 Input 3:
 ORIGINAL_QUESTION:
 [EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[DATE] 12/17/2024, 6:52:21 PM
 [QUESTION] what is their salary?
 CONVERSATION_HISTORY: "Previous query: who worked the most last week?
 
@@ -81,6 +91,7 @@ Example 4:
 Input 1:
 ORIGINAL_QUESTION:
 [EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[DATE] 12/17/2024, 6:52:21 PM
 [QUESTION] Who worked the most on average this quarter?
 CONVERSATION_HISTORY: None
 
@@ -93,6 +104,7 @@ Output 1:
 Input 2:
 ORIGINAL_QUESTION:
 [EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[DATE] 12/17/2024, 6:52:21 PM
 [QUESTION] How many projects did this person do?
 CONVERSATION_HISTORY: Previous query: "Who worked the most on average this quarter?"
 Previous result: "Employee: Sarah Chen, Average Hours: 42.5"
@@ -107,6 +119,7 @@ Example 5:
 Input 1:
 ORIGINAL_QUESTION:
 [EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[DATE] 12/17/2024, 6:52:21 PM
 [QUESTION] What 5 projects have the least reported hours?
 CONVERSATION_HISTORY: None
 
@@ -119,6 +132,7 @@ Output 1:
 Input 2:
 ORIGINAL_QUESTION:
 [EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[DATE] 12/17/2024, 6:52:21 PM
 [QUESTION] Which of these projects has the highest revenues?
 CONVERSATION_HISTORY: Previous query: "What 5 projects have the least reported hours?"
 Previous result: "Projects: Project A, Project B, Project C, Project D, Project E"
@@ -132,6 +146,7 @@ Output 2:
 Input 3:
 ORIGINAL_QUESTION:
 [EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[DATE] 12/17/2024, 6:52:21 PM
 [QUESTION] Which one had the most reported hours?
 CONVERSATION_HISTORY: Previous queries: 
 1. "What 5 projects have the least reported hours?"
@@ -150,6 +165,7 @@ Example 6:
 Input 1:
 ORIGINAL_QUESTION:
 [EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[DATE] 12/17/2024, 6:52:21 PM
 [QUESTION] What bidding projects is 丽娜 working on?
 CONVERSATION_HISTORY: None
 
@@ -162,6 +178,7 @@ Output 1:
 Input 2:
 ORIGINAL_QUESTION:
 [EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[DATE] 12/17/2024, 6:52:21 PM
 [QUESTION] Which of these bidding projects has the most hours?
 CONVERSATION_HISTORY: Previous query: "What bidding projects is 丽娜 working on?"
 Previous result: "Projects: Bid Project X, Bid Project Y, Bid Project Z"
@@ -170,6 +187,31 @@ Output 2:
 {{
     "reasoning": "'these bidding projects' refers to specific set of projects from previous query. Maintain context of both employee 丽娜 and bidding status.",
     "enhanced_question": "Find the project with the most reported hours among 丽娜's bidding projects Bid Project X, Bid Project Y, Bid Project Z"
+}}
+
+Example 7:
+Input 1:
+ORIGINAL_QUESTION:
+[EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[DATE] 12/17/2024, 6:52:21 PM
+[QUESTION] How many hours did our team work last week?
+CONVERSATION_HISTORY: None
+Output 1:
+{{
+"reasoning": "Question contains first-person plural 'our team' indicating personal context, and temporal reference 'last week'. Since [DATE] is 12/17/2024 (Tuesday), last week would be Monday 12/09/2024 to Sunday 12/15/2024, following the Monday-Sunday week definition.",
+"enhanced_question": "Calculate total work hours for team members where team_lead = '6d642ac1-a6f0-11ef-b88d-30c9abb7563e' for the period between 2024-12-09 and 2024-12-15"
+}}
+Input 2:
+ORIGINAL_QUESTION:
+[EMPLOYEE_ID] 6d642ac1-a6f0-11ef-b88d-30c9abb7563e
+[DATE] 12/17/2024, 6:52:21 PM
+[QUESTION] How does this compare to the previous month?
+CONVERSATION_HISTORY: Previous query: "How many hours did our team work last week?"
+Previous result: "Total hours: 320"
+Output 2:
+{{
+"reasoning": "Follow-up question comparing to previous month. Maintains team context from first query. Since [DATE] is in December 2024, previous month is November 2024.",
+"enhanced_question": "Calculate total work hours for team members where team_lead = '6d642ac1-a6f0-11ef-b88d-30c9abb7563e' for the period between 2024-11-01 and 2024-11-30"
 }}
 
 

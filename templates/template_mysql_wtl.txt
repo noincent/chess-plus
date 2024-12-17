@@ -43,6 +43,41 @@ These instructions are crucial for maintaining data integrity and ensuring accur
     *   Never add `employee_id` conditions unless explicitly needed for personal data access.
 
 7.  **Labor Cost Calculations:**
+    Labor Cost Calculation Requirements:
+
+Function Usage: ALWAYS use CalculateLaborCost(start_date, end_date, project_id, employee_id) for labor costs
+Date Range Rules:
+
+Use MIN(start_date) and MAX(end_date) from work_hour records
+Function automatically handles partial month calculations
+Full months calculated for complete calendar months between dates
+
+
+ID Requirements:
+
+Both project_id and employee_id must be valid UUIDs
+Employee must have work hours recorded for the period
+Project must exist in project table
+
+
+Common Table Expression (CTE) Usage:
+
+Use CTEs to calculate date ranges first
+Group by both project_id and employee_id
+Join back to main tables for final selection
+
+
+Name Matching:
+
+Include both Chinese and English variations
+Use LIKE with wildcards for flexible matching
+
+
+Output Requirements:
+
+Include employee name and alias for clarity
+Include project name in results
+Labor cost will be calculated in the project's currency
     *   Use the following built-in function to calculate labor cost, as shown below:
         ```sql
         CalculateLaborCost(
@@ -416,6 +451,64 @@ WHERE (T1.name LIKE '%舒然%' OR T1.alias LIKE '%Shuran%' OR T1.name LIKE '%Shu
 AND (T1.department LIKE '%设计管理部%' OR T1.subdepartment LIKE '%设计%')
 </FINAL_ANSWER>
 
+======= Example 2: Labor Cost Calculation =======
+**************************
+【Question】
+Calculate Lina's labor cost for the "宣传销" project
+
+**************************
+【Answer】
+Repeating the question and evidence, and generating the SQL with Recursive Divide-and-Conquer.
+
+**1. Divide and Conquer:**
+
+* **Main Question:** Calculate labor cost for Lina on 宣传销 project
+    * **Analysis:** Need to get date ranges and use CalculateLaborCost function
+    * **Pseudo SQL:** WITH date_cte AS (get_date_ranges) SELECT employee_info, CalculateLaborCost(dates, ids)
+
+    * **Sub-question 1:** Get project date ranges
+        * **Analysis:** Need min/max dates per employee-project combination
+        * **Pseudo SQL:** SELECT MIN(start_date), MAX(end_date) FROM work_hour GROUP BY project_id, employee_id
+
+    * **Sub-question 2:** Match employee and project names
+        * **Analysis:** Must handle both Chinese and English variations for employee
+        * **Pseudo SQL:** (name LIKE '%丽娜%' OR alias LIKE '%Lina%') AND (project.name LIKE '%宣传销%')
+
+**2. Assembling SQL:**
+
+**Final Optimized SQL Query:**
+
+<FINAL_ANSWER>
+WITH project_dates AS (
+    SELECT 
+        MIN(start_date) AS min_date,
+        MAX(end_date) AS max_date,
+        project_id,
+        employee_id
+    FROM work_hour T1
+    INNER JOIN employee T2 ON T1.employee_id = T2.uuid
+    INNER JOIN project T3 ON T1.project_id = T3.uuid
+    WHERE 
+        (T2.name LIKE '%丽娜%' OR T2.alias LIKE '%Lina%')
+        AND (T3.name LIKE '%宣传销%')
+    GROUP BY project_id, employee_id
+)
+SELECT 
+    T1.name AS employee_name,
+    T1.alias,
+    T2.name AS project_name,
+    CalculateLaborCost(
+        pd.min_date,
+        pd.max_date,
+        pd.project_id,
+        pd.employee_id
+    ) AS labor_cost
+FROM employee T1
+INNER JOIN project T2 ON T2.name LIKE '%宣传销%'
+INNER JOIN project_dates pd ON pd.employee_id = T1.uuid
+WHERE 
+    (T1.name LIKE '%丽娜%' OR T1.alias LIKE '%Lina%')
+</FINAL_ANSWER>
 
 **************************
 【Question】

@@ -12,6 +12,7 @@ from threading import Lock
 import time
 import yaml
 from translator import SQLTranslator
+import re
 
 
 # Add the src directory to Python path
@@ -107,8 +108,12 @@ async def query(request: QueryRequest):
         prompt = parts[0].strip()
         instructions = parts[1].strip() if len(parts) > 1 else ""
         
-        # Format just the prompt part
-        formatted_prompt = f"[EMPLOYEE_ID]\n{request.user_id}\n\n[QUESTION]\n{prompt}"
+        # Extract date from instructions if present
+        date_match = re.search(r"today's date is (.*?)\n", instructions)
+        date_info = f"\n[DATE]\n{date_match.group(1)}" if date_match else ""
+        
+        # Format the prompt part with date
+        formatted_prompt = f"[EMPLOYEE_ID]\n{request.user_id}{date_info}\n\n[QUESTION]\n{prompt}"
 
         # Process the query using the user's interface with instructions as evidence
         response = interface.chat_query(
