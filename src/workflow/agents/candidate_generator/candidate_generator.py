@@ -12,12 +12,15 @@ class CandidateGenerator(Agent):
     def __init__(self, config: dict):
         super().__init__(
             name="Candidate Generator",
-            task=("generate candidate sql queries, and revise the predicted SQL query based on task evidence and schema information",
-                  "revise the predicted SQL query based on task evidence and schema information"),
+            task=("generate candidate sql queries",
+                  "generate sql queries based on task evidence and schema information"),
             config=config
         )
 
         self.tools = {
-            "generate_candidate": GenerateCandidate(**config["tools"]["generate_candidate"]),
-            "revise": Revise(**config["tools"]["revise"])
+            "generate_candidate": GenerateCandidate(**config["tools"]["generate_candidate"])
         }
+        
+        # Only add revise tool if it's in the config
+        if "revise" in config["tools"]:
+            self.tools["revise"] = Revise(**config["tools"]["revise"])

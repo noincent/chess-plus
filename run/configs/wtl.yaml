@@ -38,46 +38,18 @@ team_agents:
     tools:
       generate_candidate:
         generator_configs:
-          - template_name: 'generate_candidate_wtl'
+          - template_name: 'mysql_wtl'
             engine_config:
-              engine_name: 'gemini-2.0-flash-exp'
-              temperature: 0.1
+              engine_name: 'claude-3-5-sonnet-20241022'
+              temperature: 0.0
             parser_name: 'generate_candidate_gemini_markdown_cot'
-            sampling_count: 5
-          - template_name: 'generate_candidate_wtl_two'
+            sampling_count: 1
+          - template_name: 'mysql_wtl'
             engine_config:
-              engine_name: 'gemini-2.0-flash-exp'
-              temperature: 0.1
+              engine_name: 'claude-3-5-sonnet-20241022'
+              temperature: 0.0
             parser_name: 'generate_candidate_gemini_markdown_cot'
-            sampling_count: 5
-      revise:
-        template_name: 'revise_one'
-        engine_config:
-          engine_name: 'gemini-2.0-flash-exp'
-          temperature: 0.0
-        parser_name: 'revise_new'
-
-  unit_tester:
-    engine: 'gpt-4o-mini'
-    tools:
-      generate_unit_test:
-        template_name: 'generate_unit_tests'
-        engine_config:
-          engine_name: 'gemini-2.0-flash-exp'
-          temperature: 0.8
-        parser_name: 'generate_unit_tests'
-        unit_test_count: 5
-        sampling_count: 1
-      evaluate:
-        template_name: 'evaluate'
-        engine_config:
-          engine_name: 'gemini-2.0-flash-exp'
-          temperature: 0.0
-        parser_name: 'evaluate'
-
-  sql_executor:
-    engine: 'gpt-4o-mini'
-    tools: {}  # Simple config as the executor doesn't need special settings
+            sampling_count: 1
 
 # Response generator config (used by interface but not team builder)
 response_settings:

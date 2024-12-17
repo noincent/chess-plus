@@ -1,111 +1,154 @@
-You are an experienced database expert specializing in project management and employee performance analysis systems.
+**MySQL 8.0 Database Admin Instructions**
 
-The database structure is defined by the following table schemas, with special attention to examples and foreign key relationships that help identify the correct columns and relationships.
+These instructions are crucial for maintaining data integrity and ensuring accurate query results. Violating these rules will lead to significant issues.
 
-Database admin instructions (violating these will result in significant query issues):
+1.  **String Matching Requirements:**
+    *   **Employee Names:** ALWAYS use `(T1.name LIKE '%value%' OR T1.alias LIKE '%value%' OR T1.name LIKE '%english/chinese_equivalent%')`.
+    *   **Departments:** ALWAYS use `(T1.department LIKE '%value%' OR T1.subdepartment LIKE '%value%')`.
+    *   **Project/Team Names:** ALWAYS check both project and team names when searching project-related information: `(T1.name LIKE '%value%' OR T2.name LIKE '%value%')`.
+    *   **Project UUID:** For all project-related queries, ALWAYS check both `T1.uuid` and `EXISTS (SELECT 1 FROM team T2 WHERE T2.uuid = T1.team_id AND T2.name LIKE '%value%')`.
+    *   **Never** use exact string matches (`=`) for text fields unless explicitly specified in the hints.
 
-1. String Matching Requirements:
-   - For employee names: ALWAYS use (name LIKE '%value%' OR alias LIKE '%value%' OR name LIKE '%english/chinese_equivalent%')
-   - For departments: ALWAYS use (department LIKE '%value%' OR subdepartment LIKE '%value%')
-   - For project/team names: ALWAYS check both project.name AND team.name when searching project-related information (e.g., project.name LIKE '%value%' OR team.name LIKE '%value%')
-   - For all project-related queries: ALWAYS check both project.uuid AND EXISTS (SELECT 1 FROM team WHERE team.uuid = project.team_id AND team.name LIKE '%value%')
-   - Never use exact string matches (=) for text fields unless specified in hints
+2.  **Join Requirements:**
+    *   Use proper table aliases (T1, T2, T3, etc.).
+    *   Join `teams` and `projects` correctly via `team_id`.
+    *   For employee performance, use a `LEFT JOIN` between `work_hour` and `projects`.
+    *   Handle `NULL` values in optional relationships appropriately.
 
-2. Join Requirements:
-   - Use proper table aliases (T1, T2, T3, etc.)
-   - Join teams and projects correctly via team_id
-   - For employee performance: outer join work_hour with projects 
-   - Handle NULL values in optional relationships
+3.  **Date Handling:**
+    *   Use `DATE_FORMAT` for date standardization (e.g., `DATE_FORMAT(date_column, '%Y-%m-%d')`).
+    *   Handle multiple date formats consistently.
+    *   Consider `NULL` dates in calculations.
+    *   Filter from `start_date` in `work_hour` unless otherwise specified.
+    *   For "last week" queries: Calculate based on the most recent completed Monday-to-Sunday period.
 
-3. Date Handling:
-   - Use STRFTIME for date standardization
-   - Handle multiple date formats consistently
-   - Consider NULL dates in calculations
-   - Filter from start_date in work_hour unless otherwise specified
-   - For "last week" queries: Calculate based on most recent completed Monday-to-Sunday period
+4.  **Aggregation Rules:**
+    *   For project revenue, handle `NULL` revenue values (e.g., using `COALESCE(revenue, 0)`).
+    *   Group by the appropriate level (team, department, client).
+    *   When querying subdepartments, ALWAYS group by both `department` and `subdepartment`.
+    *   For average work hours:
+        *   First, `SUM` all entries per employee.
+        *   Then, calculate the average across employees.
+        *   Never calculate averages directly from `work_hour` entries.
 
-4. Aggregation Rules:
-   - For project revenue: Handle NULL revenue values
-   - Group by appropriate level (team, department, client)
-   - When querying subdepartments: ALWAYS group by both department AND subdepartment
-   - For average work hours: 
-        * First SUM all entries per employee
-        * Then calculate average across employees
-        * Never calculate averages directly from work_hour entries
+5.  **Performance Optimization:**
+    *   Use `INNER JOIN` when a relationship must exist.
+    *   Use `LEFT JOIN` for optional relationships.
+    *   Add `IS NOT NULL` checks for critical calculations.
 
-5. Performance Optimization:
-   - Use INNER JOIN when relationship must exist
-   - Use LEFT JOIN for optional relationships
-   - Add IS NOT NULL checks for critical calculations
+6.  **Employee Context Handling:**
+    *   Only include `employee_id` conditions when the query specifically requires personal data.
+    *   For personal queries (my tasks, my hours), include `employee_id` filters.
+    *   For general queries (team stats, client analysis), omit `employee_id` even if provided.
+    *   Never add `employee_id` conditions unless explicitly needed for personal data access.
 
-6. Employee Context Handling:
-   - Only include employee_id conditions when the query specifically requires personal data
-   - For personal queries (my tasks, my hours): Include employee_id filters
-   - For general queries (team stats, client analysis): Omit employee_id even if provided
-   - Never add employee_id conditions unless explicitly needed for personal data access
-
-7. Labor Cost Calculations:
-    -Use the following in built function to calculate labor cost, as shown below:
-
-    CalculateLaborCost(
+7.  **Labor Cost Calculations:**
+    *   Use the following built-in function to calculate labor cost, as shown below:
+        ```sql
+        CalculateLaborCost(
+            start_date DATE,
+            end_date DATE,
+            project_id CHAR(36),
+            employee_id CHAR(36)
+        )
+        ```
+        I have a in built mysql 8.0 function
+DELIMITER $$
+CREATE FUNCTION CalculateLaborCost(
     start_date DATE,
     end_date DATE,
     project_id CHAR(36),
     employee_id CHAR(36)
-    )
+)
+RETURNS DECIMAL(10, 2)
+DETERMINISTIC
+BEGIN
+    DECLARE total_hours_on_project DECIMAL(10, 2);
+    DECLARE total_hours_employee DECIMAL(10, 2);
+    DECLARE employee_salary DECIMAL(10, 2);
+    DECLARE partial_month_start DECIMAL(10, 5);
+    DECLARE partial_month_end DECIMAL(10, 5);
+    DECLARE full_months INT;
+    DECLARE number_of_months DECIMAL(10, 5);
+    DECLARE labor_cost DECIMAL(10, 2);
+    -- Calculate total hours worked by the employee on the specific project
+    SELECT SUM(hour)
+    INTO total_hours_on_project
+    FROM work_hour
+    WHERE work_hour.employee_id = employee_id
+      AND work_hour.project_id = project_id
+      AND work_hour.start_date BETWEEN start_date AND end_date;
+    -- Calculate total hours worked by the employee across all projects
+    SELECT SUM(hour)
+    INTO total_hours_employee
+    FROM work_hour
+    WHERE work_hour.employee_id = employee_id
+      AND work_hour.start_date BETWEEN start_date AND end_date;
+    -- Get the employee's salary
+    SELECT salary
+    INTO employee_salary
+    FROM employee
+    WHERE uuid = employee_id;
+    -- Calculate partial months
+    -- Partial month for start_date
+    SELECT COUNT(distinct work_hour.start_date) / 4.35
+    INTO partial_month_start
+    FROM work_hour
+    WHERE work_hour.employee_id = employee_id
+      AND start_date BETWEEN start_date AND LAST_DAY(start_date);
+    -- Partial month for end_date
+    SELECT COUNT(distinct work_hour.start_date) / 4.35
+    INTO partial_month_end
+    FROM work_hour
+    WHERE work_hour.employee_id = employee_id
+      AND start_date BETWEEN DATE_FORMAT(end_date, '%Y-%m-01') AND end_date;
+    -- Calculate full months in between start_date and end_date
+    SELECT TIMESTAMPDIFF(MONTH, LAST_DAY(start_date) + INTERVAL 1 DAY, DATE_FORMAT(end_date, '%Y-%m-01') - INTERVAL 1 DAY)
+    INTO full_months;
+    -- Calculate the total number of months
+    SET number_of_months = full_months + partial_month_start + partial_month_end;
+    -- Calculate the labor cost
+    SET labor_cost = (employee_salary / total_hours_employee) * total_hours_on_project * number_of_months;
+    RETURN labor_cost;
+END $$
+DELIMITER ;
 
-8. Last Week Date Handling:
-   - For queries involving "last week", determine week boundaries based on Monday-to-Sunday periods
-   - Base calculations on the most recently completed Monday-to-Sunday period
-   - Use STRFTIME functions for consistent date handling
+8.  **Last Week Date Handling:**
+    *   For queries involving "last week," determine week boundaries based on Monday-to-Sunday periods.
+    *   Base calculations on the most recently completed Monday-to-Sunday period.
+    *   Use `DATE_FORMAT` and date functions for consistent date handling.
+
+**Key Differences from SQLite Instructions:**
+
+*   **`STRFTIME` replaced with `DATE_FORMAT`:** MySQL uses `DATE_FORMAT` for date formatting, not `STRFTIME`.
+*   **Date Functions:** MySQL has its own set of date functions (e.g., `DATE_SUB`, `CURDATE()`, `DAYOFWEEK()`) that should be used instead of SQLite-specific functions.
+*   **String Matching:** The `LIKE` operator works the same way, but the specific syntax for string matching remains consistent.
+*   **`COALESCE` for NULL Handling:** MySQL uses `COALESCE` to handle `NULL` values, which is equivalent to `IFNULL` in SQLite.
+
+**Example of Last Week Calculation (MySQL):**
+
+```sql
+-- Calculate the start date of the last completed week (Monday)
+SET @last_monday = DATE_SUB(CURDATE(), INTERVAL (DAYOFWEEK(CURDATE()) + 6) % 7 DAY);
+
+-- Calculate the end date of the last completed week (Sunday)
+SET @last_sunday = DATE_SUB(CURDATE(), INTERVAL (DAYOFWEEK(CURDATE()) - 1) % 7 DAY);
+
+-- Example query using the calculated dates
+SELECT *
+FROM work_hour
+WHERE start_date >= @last_monday AND start_date <= @last_sunday;
+```
+
+**Important Notes:**
+
+*   These instructions are designed to be comprehensive and prevent common errors.
+*   Always double-check your queries against these rules before execution.
+*   Pay close attention to the specific requirements of each query and adapt the instructions accordingly.
+
+By adhering to these MySQL-specific guidelines, you will ensure the accuracy, consistency, and performance of your database queries. Let me know if you have any further questions.
 
 
-   ======= Example 1: Employee and Team Lookup =======
-**************************
-【Question】
-Find all employees named "Shuran" (including English name variations) who are in the design department and their team assignments.
-
-【Evidence】
-Shuran refers to name LIKE '%舒然%' OR alias LIKE '%Shuran%'; design department refers to department LIKE '%设计管理部%'
-
-**************************
-【Answer】
-Repeating the question and evidence, and generating the SQL with Recursive Divide-and-Conquer.
-
-**1. Divide and Conquer:**
-
-* **Main Question:** Find employees named Shuran in design department with team assignments
-    * **Analysis:** Need to join employee and team tables through team_assignment, with proper name matching
-    * **Pseudo SQL:** SELECT <employee and team info> FROM employee WHERE <name conditions> AND <department condition> LEFT JOIN <team relationships>
-
-    * **Sub-question 1:** Match employee name/alias
-        * **Analysis:** Must handle both Chinese and English variations
-        * **Pseudo SQL:** (name LIKE '%舒然%' OR alias LIKE '%Shuran%' OR name LIKE '%Shuran%' OR alias LIKE '%舒然%')
-
-    * **Sub-question 2:** Match department with design
-        * **Analysis:** Use department or subdepartment match
-        * **Pseudo SQL:** (department LIKE '%设计管理部%' OR subdepartment LIKE '%设计%')
-
-**2. Assembling SQL:**
-
-**Final Optimized SQL Query:**
-
-<FINAL_ANSWER>
-SELECT DISTINCT T1.name, T1.alias, T1.department, T3.name AS team_name 
-FROM employee AS T1 
-LEFT JOIN team_assignment AS T2 ON T1.uuid = T2.employee_id 
-LEFT JOIN team AS T3 ON T2.team_id = T3.uuid 
-WHERE (T1.name LIKE '%舒然%' OR T1.alias LIKE '%Shuran%' OR T1.name LIKE '%Shuran%' OR T1.alias LIKE '%舒然%') 
-AND (T1.department LIKE '%设计管理部%' OR T1.subdepartment LIKE '%设计%')
-</FINAL_ANSWER>
-
-
-
-
-
-
-
-**************************
 <database_schema>
 Database Schema and Description
 
@@ -337,6 +380,43 @@ The uuid columns are used as primary keys in most tables, ensuring unique identi
 This document provides a comprehensive overview of the database schema, sample data, and relationships. Please let me know if you have any further questions or require additional details.
 </database_schema>
 
+   ======= Example 1: Employee and Team Lookup =======
+**************************
+【Question】
+Find all employees named "Shuran" (including English name variations) who are in the design department and their team assignments.
+
+**************************
+【Answer】
+Repeating the question and evidence, and generating the SQL with Recursive Divide-and-Conquer.
+
+**1. Divide and Conquer:**
+
+* **Main Question:** Find employees named Shuran in design department with team assignments
+    * **Analysis:** Need to join employee and team tables through team_assignment, with proper name matching
+    * **Pseudo SQL:** SELECT <employee and team info> FROM employee WHERE <name conditions> AND <department condition> LEFT JOIN <team relationships>
+
+    * **Sub-question 1:** Match employee name/alias
+        * **Analysis:** Must handle both Chinese and English variations
+        * **Pseudo SQL:** (name LIKE '%舒然%' OR alias LIKE '%Shuran%' OR name LIKE '%Shuran%' OR alias LIKE '%舒然%')
+
+    * **Sub-question 2:** Match department with design
+        * **Analysis:** Use department or subdepartment match
+        * **Pseudo SQL:** (department LIKE '%设计管理部%' OR subdepartment LIKE '%设计%')
+
+**2. Assembling SQL:**
+
+**Final Optimized SQL Query:**
+
+<FINAL_ANSWER>
+SELECT DISTINCT T1.name, T1.alias, T1.department, T3.name AS team_name 
+FROM employee AS T1 
+LEFT JOIN team_assignment AS T2 ON T1.uuid = T2.employee_id 
+LEFT JOIN team AS T3 ON T2.team_id = T3.uuid 
+WHERE (T1.name LIKE '%舒然%' OR T1.alias LIKE '%Shuran%' OR T1.name LIKE '%Shuran%' OR T1.alias LIKE '%舒然%') 
+AND (T1.department LIKE '%设计管理部%' OR T1.subdepartment LIKE '%设计%')
+</FINAL_ANSWER>
+
+
 **************************
 【Question】
 Question: 
@@ -346,4 +426,4 @@ Question:
 
 **************************
 【Answer】
-Repeating the question and hint, and generating the SQL with Recursive Divide-and-Conquer.
+Repeating the question and generating the SQL with Recursive Divide-and-Conquer and No comments.

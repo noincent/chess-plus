@@ -126,7 +126,7 @@ Previous result: "Projects: Project A, Project B, Project C, Project D, Project 
 Output 2:
 {{
     "reasoning": "'these projects' refers to the 5 projects identified in previous query. Need to maintain this specific project set context.",
-    "enhanced_question": "Find the project with the highest revenue among the projects {Project A, Project B, Project C, Project D, Project E}"
+    "enhanced_question": "Find the project with the highest revenue among the projects Project A, Project B, Project C, Project D, Project E"
 }}
 
 Input 3:
@@ -143,7 +143,7 @@ Previous results:
 Output 3:
 {{
     "reasoning": "Still operating on the same set of 5 projects from first query. Looking for hours comparison within this specific set.",
-    "enhanced_question": "Find the project with the highest reported hours among the projects {Project A, Project B, Project C, Project D, Project E}"
+    "enhanced_question": "Find the project with the highest reported hours among the projects Project A, Project B, Project C, Project D, Project E"
 }}
 
 Example 6:
@@ -169,7 +169,7 @@ Previous result: "Projects: Bid Project X, Bid Project Y, Bid Project Z"
 Output 2:
 {{
     "reasoning": "'these bidding projects' refers to specific set of projects from previous query. Maintain context of both employee 丽娜 and bidding status.",
-    "enhanced_question": "Find the project with the most reported hours among 丽娜's bidding projects {Bid Project X, Bid Project Y, Bid Project Z}"
+    "enhanced_question": "Find the project with the most reported hours among 丽娜's bidding projects Bid Project X, Bid Project Y, Bid Project Z"
 }}
 
 

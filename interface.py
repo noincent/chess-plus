@@ -245,11 +245,21 @@ class CHESSInterface:
             # Create response dictionary
             response_dict = {
                 "status": "success" if not result.get('errors') else "error",
-                "sql_query": result.get('query_result', {}).get('sql_query'),
+                "sql_query": None,  # Initialize sql_query as None
                 "results": result.get('query_result', {}).get('results'),
                 "natural_language_response": result.get('response_data', {}).get('response', "No response generated"),
                 "execution_history": result.get('execution_history', [])
             }
+            
+            # Extract SQL query from execution history if available
+            execution_history = result.get('execution_history', [])
+            for step in execution_history:
+                if step.get('tool_name') == 'generate_candidate':
+                    candidates = step.get('candidates', [])
+                    if candidates and len(candidates) > 0:
+                        # Get the SQL from the first candidate
+                        response_dict["sql_query"] = candidates[0].get('SQL', '').strip()
+                        break
             
             # Create and add chat message to session
             message = ChatMessage(

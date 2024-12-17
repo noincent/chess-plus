@@ -117,21 +117,29 @@ async def query(request: QueryRequest):
             evidence=instructions
         )
 
+        # Extract just the SQL query from the response
+        sql_query = response.get('sql_query', '')
+        if not sql_query:
+            raise HTTPException(status_code=400, detail="No SQL query was generated")
+
         # Create a new translator instance for this request
         sql_translator = SQLTranslator()
 
-        # Translate SQL query if present
-        if 'sql_query' in response:
-            try:
-                mysql_query, warnings = sql_translator.translate(response['sql_query'])
-                if warnings:
-                    logging.warning(f"SQL translation warnings: {warnings}")
-                response['sql_query'] = mysql_query
-            except Exception as e:
-                logging.error(f"SQL translation error: {e}")
-                raise HTTPException(status_code=500, detail="SQL translation failed")
+        # Translate SQL query
+        try:
+            mysql_query, warnings = sql_translator.translate(sql_query)
+            if warnings:
+                logging.warning(f"SQL translation warnings: {warnings}")
+            # Return in format compatible with frontend
+            return {
+                "result": {
+                    "sql_query": mysql_query
+                }
+            }
+        except Exception as e:
+            logging.error(f"SQL translation error: {e}")
+            raise HTTPException(status_code=500, detail="SQL translation failed")
 
-        return {"result": response}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

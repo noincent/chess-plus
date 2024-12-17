@@ -364,7 +364,6 @@ Sample unique values for each column:
 
 
 Current Question: {CURRENT_QUESTION}
-Instructions: {INSTRUCTIONS}
 Your response should be in JSON format:
 {{
     "reasoning": "Explain how you analyzed schema and sample values to enhance the query",

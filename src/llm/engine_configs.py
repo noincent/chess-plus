@@ -97,9 +97,9 @@ ENGINE_CONFIGS: Dict[str, Dict[str, Any]] = {
         "constructor": ChatOpenAI,
         "params": {"model": "gpt-4o-mini", "temperature": 0}
     },
-    "claude-3-5-sonnet-20240620": {
+    "claude-3-5-sonnet-20241022": {
         "constructor": ChatAnthropic,
-        "params": {"model": "claude-3-5-sonnet-20240620", "temperature": 0}
+        "params": {"model": "claude-3-5-sonnet-20241022", "temperature": 0}
     },
     # "finetuned_nl2sql": {
     #     "constructor": ChatOpenAI,
