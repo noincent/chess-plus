@@ -43,12 +43,13 @@ These instructions are crucial for maintaining data integrity and ensuring accur
     *   Never add `employee_id` conditions unless explicitly needed for personal data access.
 
 7.  **Labor Cost Calculations:**
-    Labor Cost Calculation Requirements:
 
 Function Usage: ALWAYS use CalculateLaborCost(start_date, end_date, project_id, employee_id) for labor costs
 Date Range Rules:
 
-Use MIN(start_date) and MAX(end_date) from work_hour records
+Use COALESCE with project dates and work hours
+For project dates: COALESCE(MIN(w.start_date), p.sign_date) as start
+For end dates: COALESCE(MAX(w.end_date), p.expected_completion_date) as end
 Function automatically handles partial month calculations
 Full months calculated for complete calendar months between dates
 
@@ -56,28 +57,26 @@ Full months calculated for complete calendar months between dates
 ID Requirements:
 
 Both project_id and employee_id must be valid UUIDs
+Use DISTINCT when joining work_hour to avoid duplicate counting
 Employee must have work hours recorded for the period
 Project must exist in project table
 
 
 Common Table Expression (CTE) Usage:
 
-Use CTEs to calculate date ranges first
-Group by both project_id and employee_id
+First CTE should calculate effective date ranges
+Second CTE should handle labor cost calculations
+Always use subquery with DISTINCT for employee-project combinations
 Join back to main tables for final selection
-
-
-Name Matching:
-
-Include both Chinese and English variations
-Use LIKE with wildcards for flexible matching
 
 
 Output Requirements:
 
-Include employee name and alias for clarity
-Include project name in results
+Include project and team names for context
 Labor cost will be calculated in the project's currency
+Group results appropriately (by project, team, or both)
+
+
     *   Use the following built-in function to calculate labor cost, as shown below:
         ```sql
         CalculateLaborCost(
@@ -460,7 +459,7 @@ WHERE (T1.name LIKE '%舒然%' OR T1.alias LIKE '%Shuran%' OR T1.name LIKE '%Shu
 AND (T1.department LIKE '%设计管理部%' OR T1.subdepartment LIKE '%设计%')
 </FINAL_ANSWER>
 
-======= Example 2: Labor Cost Calculation =======
+======= Example 2: Employee's Labor Cost Calculation =======
 **************************
 【Question】
 Calculate Lina's labor cost for the "宣传销" project
@@ -517,6 +516,79 @@ INNER JOIN project T2 ON T2.name LIKE '%宣传销%'
 INNER JOIN project_dates pd ON pd.employee_id = T1.uuid
 WHERE 
     (T1.name LIKE '%丽娜%' OR T1.alias LIKE '%Lina%')
+</FINAL_ANSWER>
+
+======= Example 3: Project Labor Cost Calculation =======
+**************************
+【Question】
+Find the project with the highest labor cost and its associated team.
+
+**************************
+【Answer】
+Repeating the question and evidence, and generating the SQL with Recursive Divide-and-Conquer.
+
+**1. Divide and Conquer:**
+
+* **Main Question:** Find project with highest total labor cost
+    * **Analysis:** Need to calculate labor costs for all projects and find maximum
+    * **Pseudo SQL:** WITH dates_cte, costs_cte SELECT MAX(total_cost)
+
+    * **Sub-question 1:** Get effective project dates
+        * **Analysis:** Need to handle both work hours and project dates
+        * **Pseudo SQL:** SELECT COALESCE(MIN(start_date), sign_date), COALESCE(MAX(end_date), expected_completion_date)
+
+    * **Sub-question 2:** Calculate total labor cost per project
+        * **Analysis:** Must avoid duplicate employee counting
+        * **Pseudo SQL:** SELECT DISTINCT employee_id, SUM(labor_cost) GROUP BY project
+
+**2. Assembling SQL:**
+
+**Final Optimized SQL Query:**
+
+<FINAL_ANSWER>
+WITH project_dates AS (
+    SELECT 
+        p.uuid AS project_id,
+        p.name AS project_name,
+        t.name AS team_name,
+        COALESCE(MIN(w.start_date), p.sign_date) AS effective_start_date,
+        COALESCE(MAX(w.end_date), p.expected_completion_date) AS effective_end_date
+    FROM project p
+    LEFT JOIN team t ON p.team_id = t.uuid
+    LEFT JOIN work_hour w ON p.uuid = w.project_id
+    GROUP BY p.uuid, p.name, t.name
+), project_labor_costs AS (
+    SELECT 
+        pd.project_id,
+        pd.project_name,
+        pd.team_name,
+        SUM(DISTINCT CalculateLaborCost(
+            pd.effective_start_date,
+            pd.effective_end_date,
+            pd.project_id,
+            w.employee_id
+        )) AS total_labor_cost
+    FROM project_dates pd
+    INNER JOIN (
+        SELECT DISTINCT project_id, employee_id 
+        FROM work_hour
+    ) w ON pd.project_id = w.project_id
+    WHERE 
+        pd.effective_start_date IS NOT NULL 
+        AND pd.effective_end_date IS NOT NULL
+    GROUP BY pd.project_id, pd.project_name, pd.team_name
+)
+SELECT 
+    project_name,
+    team_name,
+    total_labor_cost
+FROM project_labor_costs
+WHERE total_labor_cost = (
+    SELECT MAX(total_labor_cost)
+    FROM project_labor_costs
+)
+ORDER BY total_labor_cost DESC
+LIMIT 1;
 </FINAL_ANSWER>
 
 **************************
