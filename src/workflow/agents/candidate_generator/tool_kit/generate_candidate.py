@@ -2,6 +2,8 @@ from typing import Dict
 from pydantic import BaseModel
 import concurrent.futures
 from functools import partial
+import logging
+import threading
 
 from llm.models import async_llm_chain_call, get_llm_chain
 from llm.prompts import get_prompt
@@ -37,7 +39,13 @@ class GenerateCandidate(Tool):
             generator_config (GeneratorConfig): The generator configuration to process.
             state (SystemState): The current system state.
         """
+        logging.info(f"\n{'*'*50}\nProcessing Generator: {generator_config.template_name}\n{'*'*50}")
+        logging.info(f"Thread ID: {threading.current_thread().name}")
+        logging.info(f"Generator Engine: {generator_config.engine_config.get('engine_name')}")
+        logging.info(f"Sampling Count: {generator_config.sampling_count}")
+        
         if self.next_generator_to_use != "ALL" and generator_config.template_name != self.next_generator_to_use:
+            logging.info(f"Skipping generator {generator_config.template_name} as it's not selected")
             return []
             
         request_list = []
@@ -50,10 +58,15 @@ class GenerateCandidate(Tool):
                 }
                 request_list.append(request_kwargs)
             except Exception as e:
-                print(f"Error in creating request_kwargs for generator {generator_config.template_name}: {e}")
+                logging.info(f"Error in creating request_kwargs for generator {generator_config.template_name}: {e}")
                 continue
         
         try:
+            logging.info("Making API call with following parameters:")
+            logging.info(f"Template: {generator_config.template_name}")
+            logging.info(f"Engine: {generator_config.engine_config}")
+            logging.info(f"Number of requests: {len(request_list)}")
+            
             response = async_llm_chain_call(
                 prompt=get_prompt(template_name=generator_config.template_name),
                 engine=get_llm_chain(**generator_config.engine_config),
@@ -62,8 +75,9 @@ class GenerateCandidate(Tool):
                 step=f"{self.tool_name}_{generator_config.engine_config['engine_name']}",
             )
             response = [res for sublist in response for res in sublist]
+            logging.info(f"API call successful, received {len(response)} responses")
         except Exception as e:
-            print(f"Error in generating SQL queries for generator {generator_config.template_name}: {e}")
+            logging.info(f"Error in generating SQL queries for generator {generator_config.template_name}: {e}")
             return []
             
         sql_meta_infos = []
@@ -74,7 +88,7 @@ class GenerateCandidate(Tool):
                 sql_meta_info = SQLMetaInfo(**res)
                 sql_meta_infos.append(sql_meta_info)
             except Exception as e:
-                print(f"Error in creating SQLMetaInfo for generator {generator_config.template_name}: {e}")
+                logging.info(f"Error in creating SQLMetaInfo for generator {generator_config.template_name}: {e}")
                 continue
         
         return sql_meta_infos

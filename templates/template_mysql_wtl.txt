@@ -90,61 +90,70 @@ Labor cost will be calculated in the project's currency
         I have a in built mysql 8.0 function
 DELIMITER $$
 CREATE FUNCTION CalculateLaborCost(
-    start_date DATE,
-    end_date DATE,
-    project_id CHAR(36),
-    employee_id CHAR(36)
+	start_date DATE,
+	end_date DATE,
+	project_id CHAR(36),
+	employee_id CHAR(36)
 )
 RETURNS DECIMAL(10, 2)
 DETERMINISTIC
 BEGIN
-    DECLARE total_hours_on_project DECIMAL(10, 2);
-    DECLARE total_hours_employee DECIMAL(10, 2);
-    DECLARE employee_salary DECIMAL(10, 2);
-    DECLARE partial_month_start DECIMAL(10, 5);
-    DECLARE partial_month_end DECIMAL(10, 5);
-    DECLARE full_months INT;
-    DECLARE number_of_months DECIMAL(10, 5);
-    DECLARE labor_cost DECIMAL(10, 2);
-    -- Calculate total hours worked by the employee on the specific project
-    SELECT SUM(hour)
-    INTO total_hours_on_project
-    FROM work_hour
-    WHERE work_hour.employee_id = employee_id
-      AND work_hour.project_id = project_id
-      AND work_hour.start_date BETWEEN start_date AND end_date;
-    -- Calculate total hours worked by the employee across all projects
-    SELECT SUM(hour)
-    INTO total_hours_employee
-    FROM work_hour
-    WHERE work_hour.employee_id = employee_id
-      AND work_hour.start_date BETWEEN start_date AND end_date;
-    -- Get the employee's salary
-    SELECT salary
-    INTO employee_salary
-    FROM employee
-    WHERE uuid = employee_id;
-    -- Calculate partial months
-    -- Partial month for start_date
-    SELECT COUNT(distinct work_hour.start_date) / 4.35
-    INTO partial_month_start
-    FROM work_hour
-    WHERE work_hour.employee_id = employee_id
-      AND start_date BETWEEN start_date AND LAST_DAY(start_date);
-    -- Partial month for end_date
-    SELECT COUNT(distinct work_hour.start_date) / 4.35
-    INTO partial_month_end
-    FROM work_hour
-    WHERE work_hour.employee_id = employee_id
-      AND start_date BETWEEN DATE_FORMAT(end_date, '%Y-%m-01') AND end_date;
-    -- Calculate full months in between start_date and end_date
-    SELECT TIMESTAMPDIFF(MONTH, LAST_DAY(start_date) + INTERVAL 1 DAY, DATE_FORMAT(end_date, '%Y-%m-01') - INTERVAL 1 DAY)
-    INTO full_months;
-    -- Calculate the total number of months
-    SET number_of_months = full_months + partial_month_start + partial_month_end;
-    -- Calculate the labor cost
-    SET labor_cost = (employee_salary / total_hours_employee) * total_hours_on_project * number_of_months;
-    RETURN labor_cost;
+	DECLARE total_hours_on_project DECIMAL(10, 2);
+	DECLARE total_hours_employee DECIMAL(10, 2);
+	DECLARE employee_salary DECIMAL(10, 2);
+	DECLARE partial_month_start DECIMAL(10, 5);
+	DECLARE partial_month_end DECIMAL(10, 5);
+	DECLARE full_months INT;
+	DECLARE number_of_months DECIMAL(10, 5);
+	DECLARE labor_cost DECIMAL(10, 2);
+
+	-- Calculate total hours worked by the employee on the specific project
+	SELECT SUM(hour)
+	INTO total_hours_on_project
+	FROM work_hour
+	WHERE work_hour.employee_id = employee_id
+  	AND work_hour.project_id = project_id
+  	AND work_hour.start_date BETWEEN start_date AND end_date;
+
+	-- Calculate total hours worked by the employee across all projects
+	SELECT SUM(hour)
+	INTO total_hours_employee
+	FROM work_hour
+	WHERE work_hour.employee_id = employee_id
+  	AND work_hour.start_date BETWEEN start_date AND end_date;
+
+	-- Get the employee's salary
+	SELECT salary
+	INTO employee_salary
+	FROM employee
+	WHERE uuid = employee_id;
+
+	-- Calculate partial months
+	-- Partial month for start_date
+	SELECT COUNT(distinct work_hour.start_date) / 4.35
+	INTO partial_month_start
+	FROM work_hour
+	WHERE work_hour.employee_id = employee_id
+  	AND work_hour.start_date BETWEEN start_date AND LAST_DAY(start_date);
+
+	-- Partial month for end_date
+	SELECT COUNT(distinct work_hour.start_date) / 4.35
+	INTO partial_month_end
+	FROM work_hour
+	WHERE work_hour.employee_id = employee_id
+  	AND work_hour.start_date BETWEEN DATE_FORMAT(end_date, '%Y-%m-01') AND end_date;
+
+	-- Calculate full months in between start_date and end_date
+	SELECT TIMESTAMPDIFF(MONTH, LAST_DAY(start_date) + INTERVAL 1 DAY, DATE_FORMAT(end_date, '%Y-%m-01') - INTERVAL 1 DAY)
+	INTO full_months;
+
+	-- Calculate the total number of months
+	SET number_of_months = full_months + partial_month_start + partial_month_end;
+
+	-- Calculate the labor cost
+	SET labor_cost = (employee_salary / total_hours_employee) * total_hours_on_project * number_of_months;
+
+	RETURN labor_cost;
 END $$
 DELIMITER ;
 

@@ -39,8 +39,14 @@ Remember these translation rules:
 - Handle any other syntax differences appropriately"""
 
     def validate_query(self, query: str) -> Optional[str]:
-        """Basic validation to ensure query is well-formed"""
+        """Basic validation to ensure query is well-formed and remove comments"""
         try:
+            # Remove SQL comments
+            # Remove single line comments (both -- and #)
+            query = re.sub(r'--[^\n]*|#[^\n]*', '', query)
+            # Remove multi-line comments
+            query = re.sub(r'/\*.*?\*/', '', query, flags=re.DOTALL)
+            
             parsed = sqlparse.parse(query)
             if not parsed or not parsed[0].tokens:
                 return "Invalid SQL syntax"
@@ -49,10 +55,7 @@ Remember these translation rules:
                 r"(?i)DROP\s+",
                 r"(?i)DELETE\s+(?!FROM)",
                 r"(?i)TRUNCATE\s+",
-                r"(?i)ALTER\s+",
-                r"--",
-                r"#[^\n]*",
-                r"/\*.*?\*/",
+                r"(?i)ALTER\s+"
             ]
             
             for pattern in dangerous_patterns:

@@ -7,6 +7,10 @@ You have access to the following tools. You need to call them in the correct ord
 {tools}
 </tools>
 
+IMPORTANT: Each tool should only be called ONCE unless there is a specific need for multiple calls. In particular:
+- The generate_candidate tool should only be called once to generate all required candidates
+- Only make additional tool calls if the previous call failed or if explicitly required by the workflow
+
 You will be given a system state, which contains the current state of the workflow.
 
 Please identify the next tool you need to call in enclosed in <tool_call> tags.
