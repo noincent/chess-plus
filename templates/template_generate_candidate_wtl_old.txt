@@ -45,205 +45,14 @@ Database admin instructions (violating these will result in significant query is
    - Never add employee_id conditions unless explicitly needed for personal data access
 
 7. Labor Cost Calculations:
-  I'll help you construct a complete prompt that can be used to generate SQLite queries for labor cost calculations. Here's the comprehensive prompt:
+    -Use the following in built function to calculate labor cost, as shown below:
 
-# Labor Cost Calculator - SQLite Query Generation Rules
-
-## Time Period Definitions
-- 1 week = 7 days
-- 1 month = 4.35 weeks
-- 1 quarter = 13 weeks
-- 1 year = 52 weeks
-
-## Core Rules
-1. Use Precise Labor Cost calculation ONLY for previous quarters
-2. Use Estimated Labor Cost calculation for all other periods (current/future)
-
-## Date Handling Rules
-
-### Monthly Calculations:
-Calculate a month by including:
-- First week that ends in target month
-- Next three complete weeks
-- 35% of the fifth week 
-
-For example, May 2024:
-```
-Week 1: April 29 - May 6    (100%)
-Week 2: May 6 - May 13      (100%)
-Week 3: May 13 - May 20     (100%)
-Week 4: May 20 - May 27     (100%)
-Week 5: May 27 - June 3     (35%)
-Total = 4.35 weeks
-```
-
-### Quarterly Calculations:
-Include:
-- First week that ends in target quarter
-- Next 12 complete weeks
-Total = 13 weeks
-
-## Calculation Methods
-
-### Precise Labor Cost (Previous Quarters Only)
-1. Calculate individual employee's total hours for the quarter
-2. Calculate their hourly rate using: monthly_salary / (quarterly_hours / 3)
-3. Multiple hourly rate by total hours worked
-4. Sum all employees' costs
-
-### Estimated Labor Cost (Current/Future Periods)
-1. Calculate average monthly salary across all employees on project
-2. Calculate average hours worked per employee
-3. Calculate estimated hourly rate: avg_monthly_salary / avg_hours
-4. Multiple by total hours worked
-5. Adjust for period:
-   - Weekly: Use avg_monthly_salary / 4.35
-   - Monthly: Use avg_monthly_salary as is
-   - Quarterly: Use avg_monthly_salary * 3
-   - Yearly: Use avg_monthly_salary * 12
-
-## Example Queries
-
-### Example 1: Project Total Labor Cost
-Question: "What have been the labor costs for the BMW 4S Store Design Project 2024 since its start?"
-
-Rules to apply:
-- Split calculation between completed quarters (precise) and current quarter (estimated)
-- Join work_hour with employee for salary data
-- Filter by specific project using project.name
-- Use strftime for quarter determination
-
-```sql
-WITH project_quarters AS (
-  SELECT DISTINCT
-    strftime('%Y-%m', start_date) as year_month,
-    strftime('%Y-Q%d', start_date) as quarter
-  FROM work_hour w
-  WHERE project_id = (
-    SELECT uuid 
-    FROM project 
-    WHERE name = '2024年宝马4S店设计项目（全国）'
-  )
-  GROUP BY strftime('%Y-%m', start_date)
-),
-precise_quarters AS (
-  -- Previous quarters use precise calculation
-  SELECT 
-    w.employee_id,
-    SUM(w.hour) as total_hours,
-    e.salary,
-    (e.salary / (SUM(w.hour) / 3)) * SUM(w.hour) as labor_cost
-  FROM work_hour w
-  JOIN employee e ON w.employee_id = e.uuid
-  WHERE w.project_id = (SELECT uuid FROM project WHERE name = '2024年宝马4S店设计项目（全国）')
-  AND strftime('%Y-Q%d', w.start_date) < strftime('%Y-Q%d', 'now')
-  GROUP BY w.employee_id
-),
-current_quarter AS (
-  -- Current quarter uses estimated calculation
-  SELECT 
-    AVG(e.salary) / (SUM(w.hour) / COUNT(DISTINCT w.employee_id)) 
-    * SUM(w.hour) as estimated_cost
-  FROM work_hour w
-  JOIN employee e ON w.employee_id = e.uuid
-  WHERE w.project_id = (SELECT uuid FROM project WHERE name = '2024年宝马4S店设计项目（全国）')
-  AND strftime('%Y-Q%d', w.start_date) = strftime('%Y-Q%d', 'now')
-)
-SELECT 
-  COALESCE(SUM(labor_cost), 0) + COALESCE((SELECT estimated_cost FROM current_quarter), 0) 
-  as total_project_cost
-FROM precise_quarters;
-```
-
-### Example 2: Monthly Department Cost
-Question: "What was the total labor cost for the AI team in May 2024?"
-
-Rules to apply:
-- Use 4.35 week calculation
-- Filter by subdepartment = 'AI团队'
-- Include partial fifth week
-- Use estimated calculation (current/future period)
-
-```sql
-WITH may_weeks AS (
-  SELECT 
-    MIN(start_date) as first_week_start,
-    DATE(MIN(start_date), '+28 days') as four_weeks_end,
-    DATE(MIN(start_date), '+35 days') as fifth_week_end
-  FROM work_hour
-  WHERE end_date <= '2024-05-01'
-  AND end_date >= DATE('2024-05-01', '-7 days')
-),
-monthly_hours AS (
-  -- Full weeks
-  SELECT 
-    w.employee_id,
-    SUM(w.hour) as full_weeks_hours
-  FROM work_hour w
-  JOIN employee e ON w.employee_id = e.uuid
-  WHERE w.start_date >= (SELECT first_week_start FROM may_weeks)
-  AND w.end_date <= (SELECT four_weeks_end FROM may_weeks)
-  AND e.subdepartment = 'AI团队'
-  GROUP BY w.employee_id
-  
-  UNION ALL
-  
-  -- 35% of fifth week
-  SELECT 
-    w.employee_id,
-    SUM(w.hour) * 0.35 as partial_week_hours
-  FROM work_hour w
-  JOIN employee e ON w.employee_id = e.uuid
-  WHERE w.start_date > (SELECT four_weeks_end FROM may_weeks)
-  AND w.end_date <= (SELECT fifth_week_end FROM may_weeks)
-  AND e.subdepartment = 'AI团队'
-  GROUP BY w.employee_id
-)
-SELECT 
-  AVG(e.salary) / (SUM(mh.full_weeks_hours) / COUNT(DISTINCT mh.employee_id))
-  * SUM(mh.full_weeks_hours) as estimated_monthly_cost
-FROM monthly_hours mh
-JOIN employee e ON mh.employee_id = e.uuid;
-```
-
-### Example 3: Team Weekly Cost
-Question: "What was Team GS111's labor cost for May 6-12, 2024?"
-
-Rules to apply:
-- Use estimated cost (current/future period)
-- Divide monthly salary by 4.35 for weekly calculation
-- Join through team -> project -> work_hour tables
-- Filter by team name
-
-```sql
-SELECT 
-  t.name as team_name,
-  COUNT(DISTINCT w.employee_id) as team_size,
-  SUM(w.hour) as total_hours,
-  (AVG(e.salary) / 4.35) / (SUM(w.hour) / COUNT(DISTINCT w.employee_id))
-  * SUM(w.hour) as weekly_labor_cost
-FROM team t
-JOIN project p ON t.uuid = p.team_id
-JOIN work_hour w ON p.uuid = w.project_id
-JOIN employee e ON w.employee_id = e.uuid
-WHERE t.name = 'GS111'
-AND w.start_date >= '2024-05-06'
-AND w.end_date <= '2024-05-12'
-GROUP BY t.name;
-```
-
-## Important Notes
-
-1. Always use SQLite date functions (strftime) for date calculations
-2. Handle NULL values with COALESCE
-3. Use proper table joins based on the schema:
-   - project.team_id -> team.uuid
-   - work_hour.project_id -> project.uuid
-   - work_hour.employee_id -> employee.uuid
-4. Round financial calculations to 2 decimal places using ROUND()
-5. Group results appropriately based on the query context (by team, department, project, etc.)
-6. Filter out reversed entries using `is_reversed = 0` when needed
-
+    CalculateLaborCost(
+    start_date DATE,
+    end_date DATE,
+    project_id CHAR(36),
+    employee_id CHAR(36)
+    )
 
 8. Last Week Date Handling:
    - For queries involving "last week", determine week boundaries based on Monday-to-Sunday periods
@@ -252,32 +61,6 @@ GROUP BY t.name;
 
 
    ======= Example 1: Employee and Team Lookup =======
-**************************
-【Table creation statements】
-CREATE TABLE employee (
-    uuid TEXT PRIMARY KEY,
-    name TEXT,
-    department TEXT,
-    alias TEXT,
-    position TEXT,
-    subdepartment TEXT,
-    salary INTEGER
-);
-
-CREATE TABLE team (
-    uuid TEXT PRIMARY KEY,
-    name TEXT,
-    description TEXT
-);
-
-CREATE TABLE team_assignment (
-    uuid TEXT PRIMARY KEY,
-    team_id TEXT,
-    employee_id TEXT,
-    FOREIGN KEY (team_id) REFERENCES team(uuid),
-    FOREIGN KEY (employee_id) REFERENCES employee(uuid)
-);
-
 **************************
 【Question】
 Find all employees named "Shuran" (including English name variations) who are in the design department and their team assignments.
@@ -323,7 +106,6 @@ AND (T1.department LIKE '%设计管理部%' OR T1.subdepartment LIKE '%设计%')
 
 
 **************************
-【Table creation statements】
 <database_schema>
 Database Schema and Description
 

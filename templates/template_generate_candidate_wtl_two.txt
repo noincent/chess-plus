@@ -17,7 +17,6 @@ Database admin instructions (violating any of these will result in significant q
 
 1. String Matching and Text Requirements:
    - For text searches: Always use LIKE with wildcards (e.g., name LIKE '%value%')
-   - For employee names: Check both name and alias columns, and consider both Chinese and English variations in searches (e.g., `name LIKE '%value%' OR alias LIKE '%value%' OR name LIKE '%english/chinese_equivalent%'`)
    - For departments: Check both department and subdepartment and use LIKE with wildcards (e.g., `department LIKE '%value%' OR subdepartment LIKE '%value%'`)
    - For project/team names: ALWAYS check both project.name AND team.name when searching project-related information (e.g., `project.name LIKE '%value%' OR team.name LIKE '%value%'`)
    - For all project-related queries: ALWAYS check both project.uuid AND EXISTS (SELECT 1 FROM team WHERE team.uuid = project.team_id AND team.name LIKE '%value%')
@@ -90,11 +89,8 @@ Database admin instructions (violating any of these will result in significant q
 Special Scenario Handling:
 
 1. Employee-Related Queries:
-   - Always consider both Chinese and English names:
-     WHERE (T1.name LIKE '%张三%' OR T1.alias LIKE '%Zhang San%'
-            OR T1.name LIKE '%Zhang San%' OR T1.alias LIKE '%张三%')
    - Department hierarchy:
-     WHERE (T1.department LIKE '%设计%' OR T1.subdepartment LIKE '%设计%')
+     WHERE (T1.department LIKE '%%' OR T1.subdepartment LIKE '%%')
    - Only include employee_id conditions when the query specifically requires personal data
    - For personal queries (my tasks, my hours): Include employee_id filters
    - For general queries (team stats, client analysis): Omit employee_id even if provided
@@ -184,229 +180,242 @@ Query Structure Best Practices:
 
 Now is the real question, following the instruction and examples, generate the SQL with Recursive Divide-and-Conquer approach. Make sure you only output one single query.
 **************************
-【Table creation statements】
 <database_schema>
 Database Schema and Description
 
 This document describes the schema of a database, including tables, columns, data types, constraints, sample values, and relationships.
 
-1. client Table
 
-Description: Stores information about clients, including their name, source, company, contact details, background, and any additional notes.
+3. Client Table
 
-Columns:
-
-uuid (char(36), Primary Key, NOT NULL): Unique identifier for each client.
-
-Sample Values: "017143b5-285c-4a62-8ab0-bee690e6ac69", "0450995e-c275-4d2e-99c0-40e6803d2bc4", "0a8f3c0e-616a-444a-902c-23474c91124d", ...
-
-name (varchar(255), NOT NULL): The name or title of the client.
-
-Sample Values: "希小姐", "刘娟", "熊倩", "杨总", "冉总", "程竹", "焦总", "黄蕾", "李总", "辛总工"
-
-source (varchar(255), NULL): The source or classification of the client relationship.
-
-Sample Values: "老客户", "新客户", "满/小雨", "任丽娜", "王厚毅", "老洪芳"
-
-company (varchar(255), NULL): The name of the company or organization the client is associated with.
-
-Sample Values: "港大思培（北京）咨询有限公司", "北京东来顺集团有限责任公司", "Beijing Mercedes-Benz Sales Service Co., Ltd", null, "某传媒公司", "华晨宝马", "中证投资", "莱坊房地产经纪（上海）有限公司", "七彩云南", "燕京理工学院"
-
-contact (varchar(255), NULL): Contact information, such as a phone number.
-
-Sample Values: "85185526-8006", "18601133126", "8417 3546", "18611059685", "13301395893", "18610143352", null, "13701039900", "18810682639"
-
-background (text, NULL): The background or type of the client’s organization.
-
-Sample Values: "外资", "国企", "世界五百强", "私企", "传媒公司", "上市公司", null, "全球性房地产咨询公司", "民办学校"
-
-description (text, NULL): Additional notes or details about the client relationship.
-
-Sample Values: "老客户", "老客户二次经营", null, "新拓客户", "老客户公司其他业务板块二次经营", "新客户开发", "//"
-
-2. employee Table
-
-Description: Stores information about employees, including their name, department, alias, position, subdepartment, and salary.
+Description: No description available.
 
 Columns:
 
-uuid (char(36), Primary Key, NOT NULL): Unique identifier for each employee.
+  uuid (char(36), Primary Key, NOT NULL): 
 
-Sample Values: "0ac49b75-a8b3-11ef-b88d-30c9abb7563e", "6d642ac1-a6f0-11ef-b88d-30c9abb7563e", "6d646397-a6f0-11ef-b88d-30c9abb7563e", ...
+Sample Values: 017143b5-285c-4a62-8ab0-bee690e6ac69, 0450995e-c275-4d2e-99c0-40e6803d2bc4, 0a8f3c0e-616a-444a-902c-23474c91124d, 0ade53ce-c9af-4c52-a3a6-8fac9f420bc4, 0b5796fe-9d8b-4f13-945f-4440cd82bd5f
 
-name (varchar(255), NOT NULL): Employee's name.
+  name (varchar(255), NOT NULL): 
 
-Sample Values: "杨舒然", "尹晓娟", "刘志娟", "檀雅莉", "GIBB ERIC PETER", "张海霞", "YU BILL BAICHUAN", "Kydyraliev Temirlan", "任丽娜", "高强"
+Sample Values: Anderson Ltd, Frazier, Lambert and Hernandez, Hunt, Novak and Gibson, Murray-Hobbs, Wagner, Dunn and Chan
 
-department (varchar(255), NULL): The department the employee belongs to.
+  source (varchar(255), ): 
 
-Sample Values: "战略内审中心", "财务管理中心", "人力资源中心", "业务拓展部"
+Sample Values: Zang Hongfang, Old client, Old client, New customer, New customer
 
-alias (varchar(255), NULL): Employee's alias or alternative name.
+  company (varchar(255), ): 
 
-Sample Values: "Shuran", "Fiona.Yin", "Kelly", "yali", "ERIC", "", "于百川", "黎萤、Tima", "Lina Ren"
+Sample Values: 383 Alvarez Fork Apt. 494, Changbury, NE 85667, 27985 Ricky Station, Lake Christopher, AK 76461, 86942 Thomas River Apt. 594, Bakermouth, MT 44525, USCGC Lucero, FPO AA 59364, 655 Hernandez Roads Apt. 052, Lake Brookeville, MN 31943
 
-position (text, NULL): The employee's job title or position.
+  contact (varchar(255), ): 
 
-Sample Values: "Financial Engineer", "出纳", "HRBP", "员工关系", "战略总监", "内审专员", "AI Engineer", "客户总监", "客户经理"
+Sample Values: (674)264-0255, 382.147.8995, 516.796.8319x6779, 354.987.1676x84560, 499.151.9613
 
-subdepartment (varchar(255), NULL): Subdivision within the department (if applicable).
+  background (text, ): 
 
-Sample Values: "内审组", "", "AI团队"
+Sample Values: foreign investment, State -owned enterprise, World Top 500, Private enterprise, Media company
 
-salary (int, NULL, Default: 20000): Salary amount of each employee.
+  description (text, ): 
 
-Sample Values: 20000
-
-
-3. project Table
-
-Description: Stores information about projects, including their name, team, address, type, area, sign date, expected completion date, revenue, revenue note, and client.
-
-Columns:
-
-uuid (char(36), Primary Key, NOT NULL): Unique identifier for each project.
-
-Sample Values: "50bf4327-a8a8-11ef-b88d-30c9abb7563e", "50c3cd26-a8a8-11ef-b88d-30c9abb7563e", "50c581d9-a8a8-11ef-b88d-30c9abb7563e", ...
-
-name (varchar(255), NOT NULL): The name or title of the project.
-
-Sample Values: "宝马汽车2024-2026年年框设计项目", "上海联江芯亚芯科技园2号楼7楼局部装修施工项目", "2024年宝马4S店设计项目（全国）", "邢台经济开发区信息科技智慧应用产业园区项目餐厅精装修项目", "中信金属-BJ-办公室设计项目", "宝马品牌学院-BJ-设计施工项目", "歌尔科技产业项目二期-E栋实验室设计项目", "北京嘉华学院软装设计项目", "信达公寓设计项目", "俄罗斯天然气北京办公室改造项目"
-
-team_id (char(36), NULL, Foreign Key referencing team.uuid): Foreign key referencing the team responsible for the project.
-
-Sample Values: "43379251-a865-11ef-b88d-30c9abb7563e", "4338dcbc-a865-11ef-b88d-30c9abb7563e", "4339611a-a865-11ef-b88d-30c9abb7563e", "4339efab-a865-11ef-b88d-30c9abb7563e", "433a61c4-a865-11ef-b88d-30c9abb7563e", "433ac6e9-a865-11ef-b88d-30c9abb7563e", "433b1d02-a865-11ef-b88d-30c9abb7563e", "433cacbc-a865-11ef-b88d-30c9abb7563e", "433ddb1f-a865-11ef-b88d-30c9abb7563e", "433e3e07-a865-11ef-b88d-30c9abb7563e"
-
-address (text, NULL): The location or address where the project is being executed.
-
-Sample Values: "全国", "上海", "北京", "邢台经济开发区信息科技智慧应用产业园区", "京城大厦", "京顺东街新锦路宝马北京培训中心", "青岛市崂山区松岭路500号", "北京市宋庄镇邢各庄村", "东外39号院信达公寓"
-
-type (varchar(100), NULL): The category of the project.
-
-Sample Values: null, "邀请招标", "投标", "直委", "议价"
-
-area (float, NULL): The total area of the project site.
-
-Sample Values: 0.0, 200.0, 450.0
-
-sign_date (date, NULL): The date when the project was signed or initiated.
-
-Sample Values: null
-
-expected_completion_date (date, NULL): The projected completion date for the project.
-
-Sample Values: null
-
-revenue (decimal(15,2), NULL): The total expected revenue from the project.
-
-Sample Values: 0.0, 3230000.0, 275000.0, 6800000.0, 800000.0, 1000000.0, 855600.0, 220000.0, 250000.0, 2300000.0
-
-revenue_note (text, NULL): Additional notes or remarks regarding the project revenue.
-
-Sample Values: null
-
-client_id (char(36), NULL, Foreign Key referencing client.uuid): Foreign key referencing the client associated with the project.
-
-Sample Values: "0e3cf311-4f30-4d04-b69a-bdb51e7cb88c", "5449261e-bb9f-4b61-a161-5020d92b8f69", "18e49836-cc4b-40ba-81a2-adebf4c7fa0d", "3a6c0272-0f17-47e1-b1da-38990839fcb0", "48ae8adb-c80e-4748-8c48-587ad42bf636", "1a317c2d-8236-49e8-9f58-94e887d8ef04", "ffd587cb-f182-4d66-9424-3fb3c16f8586", "34b61e09-0b33-474d-8f80-45c4201cdded", "3a92a419-e5b5-4384-a8cf-3a36ba76f1f1", "c3ae833a-c5db-427d-8ac9-0f40726372c6"
+Sample Values: Old client, Old customer secondary operation, Old client, , 
 
 
-4. team Table
+38. Employee Table
 
-Description: Stores information about teams, including their name and description.
+Description: No description available.
 
 Columns:
 
-uuid (char(36), Primary Key, NOT NULL): Unique identifier for each team.
+  uuid (char(36), Primary Key, NOT NULL): 
 
-Sample Values: "4325f609-a865-11ef-b88d-30c9abb7563e", "43266720-a865-11ef-b88d-30c9abb7563e", "4326d8e8-a865-11ef-b88d-30c9abb7563e", ...
+Sample Values: 0ac49b75-a8b3-11ef-b88d-30c9abb7563e, 6d642ac1-a6f0-11ef-b88d-30c9abb7563e, 6d646397-a6f0-11ef-b88d-30c9abb7563e, 6d648745-a6f0-11ef-b88d-30c9abb7563e, 6d64aa1b-a6f0-11ef-b88d-30c9abb7563e
 
-name (varchar(255), NULL): The name or code of the team.
+  name (varchar(255), NOT NULL): 
 
-Sample Values: "CANAAN24004-BJ08", "CANAAN24005-BJ08", "GS111", "GS19037-BJ04", "GS19121-CQ10", "GS19132-BJ10", "GS210031-BJ03", "GS210069-SD06", "GS210071-BJ07", "GS210075-SH07"
+Sample Values: Juan, Shelby, Christine, Patrick, Kyle
 
-description (text, NULL): A description providing additional details about the team.
+  department (varchar(255), ): 
 
-Sample Values: null
+Sample Values: Comprehensive Management Department, Comprehensive Management Department, Comprehensive Management Department, Comprehensive Management Department, Comprehensive Management Department
 
-5. team_assignment Table
+  alias (varchar(255), ): 
 
-Description: Links employees to teams, indicating which employees are assigned to which teams.
+Sample Values: 0.0, 0.0, 0.0, 0.0, 0.0
+
+  position (text, ): 
+
+Sample Values: Financial Engineer, Cashier, HRBP, Employee relationship, Strategic director
+
+  subdepartment (varchar(255), ): 
+
+Sample Values: Internal trial team, Financial Management Center, Human Resources Center, Human Resources Center, 
+
+  salary (int, Default: 20000): 
+
+Sample Values: 20000, 20000, 20000, 20000, 20000
+
+
+
+88. Project Table
+
+Description: No description available.
 
 Columns:
 
-uuid (char(36), Primary Key, NOT NULL): Unique identifier for each team assignment.
+  uuid (char(36), Primary Key, NOT NULL): 
 
-Sample Values: "47da5110-b519-11ef-816a-30c9abb7563e", "48d106b2-b519-11ef-816a-30c9abb7563e", "49d44a7b-b519-11ef-816a-30c9abb7563e", ...
+Sample Values: 064b75a3-54c1-4695-90ea-065f0697bb2a, 14986566-4b20-47f7-8415-479648bcf105, 179de3d0-bbc9-4cda-8124-03e225ecff69, 2d6d2ffb-673a-42d9-92d1-0b3a8dd69d4a, 2f63c5b9-324d-4bd0-b3e2-86a2655c3c9f
 
-team_id (char(36), NULL, Foreign Key referencing team.uuid): Foreign key referencing the team.
+  name (varchar(255), NOT NULL): 
 
-Sample Values: "4325f609-a865-11ef-b88d-30c9abb7563e", "43266720-a865-11ef-b88d-30c9abb7563e", "4326d8e8-a865-11ef-b88d-30c9abb7563e"
+Sample Values: Adams-Ali, Adams-Wells, Adkins Group, Allen-Leon, Allen, Smith and Bell
 
-employee_id (char(36), NULL, Foreign Key referencing employee.uuid): Foreign key referencing the employee.
+  team_id (char(36), ): 
 
-Sample Values: "6d6a68a0-a6f0-11ef-b88d-30c9abb7563e", "6d652b20-a6f0-11ef-b88d-30c9abb7563e", null, "6d658fa2-a6f0-11ef-b88d-30c9abb7563e", "6d665e30-a6f0-11ef-b88d-30c9abb7563e", "6d6690e2-a6f0-11ef-b88d-30c9abb7563e", "6d6727f3-a6f0-11ef-b88d-30c9abb7563e", "6d675a5a-a6f0-11ef-b88d-30c9abb7563e", "6d677378-a6f0-11ef-b88d-30c9abb7563e"
+Sample Values: 
+
+  address (text, ): 
+
+Sample Values: , , , , 
+
+  type (varchar(100), ): 
+
+Sample Values: , , , , 
+
+  area (float, ): 
+
+Sample Values: 0.0, 0.0, 0.0, 0.0, 0.0
+
+  sign_date (date, ): 
+
+Sample Values: 
+
+  expected_completion_date (date, ): 
+
+Sample Values: 
+
+  revenue (decimal(15,2), ): 
+
+Sample Values: 0.00, 0.00, 0.00, 0.00, 0.00
+
+  revenue_note (text, ): 
+
+Sample Values: 
+
+  client_id (char(36), ): 
+
+Sample Values: 
+
+Foreign Keys:
+  client_id referencing client.uuid
+  team_id referencing team.uuid
 
 
-6. work_hour Table
 
-Description: Stores work hour entries, including task descriptions, project stage, standardization status, project ID, employee ID, hours worked, and start/end dates.
+
+213. Team Table
+
+Description: No description available.
 
 Columns:
 
-uuid (char(36), Primary Key, NOT NULL): Unique identifier for each work hour entry.
+  uuid (char(36), Primary Key, NOT NULL): 
 
-Sample Values: "00240cd1-b88f-4b46-b39e-999da52d5db5", "0032f417-956b-4687-9a0e-2265a21a084d", "003faf2f-a617-483d-a60b-0b74860226f9", ...
+Sample Values: 99becc59-4471-40ef-813b-62c6c337af2e, eae72458-b312-11ef-b06b-00155da51a45, d7b18f6c-e11b-4ddf-abb8-dbf721be254d, eae6bf5b-b312-11ef-b06b-00155da51a45, 4d514de0-4caf-4a46-b5e5-5d7a6802d55a
 
-is_reversed (tinyint(1), NULL, Default: 0): Indicates if the work is reworked (0: Not reversed, 1: Reversed).
+  name (varchar(255), ): 
 
-Sample Values: 0
+Sample Values: (Need number) Innovation Center 15#Fuzhou Changle Digital Town CDS Industrial Connection, (Need number) Nanjing Yizhuan Building Block B 307-309 Huawei new venue, (Need number) Pakistan's communication room, (Need numbers) Hongsheng 20th floor, (Need numbers) I hope to learn the design of the national workplace year frame
 
-task_description (text, NULL): Description of the task associated with the work hour entry.
+  description (text, ): 
 
-Sample Values: "合同流程中，指定消防（三方协议）", "甲方汇报会,时间计划梳理,燃气对接", "华控咨询UPS事宜。华控售后。华控播控失灵问题与厂家沟通，寻求解决方案。", "", "平面方案,需求对接", "现场反馈，暖通施工图纸调整", "二层剧场图纸深化、现场勘察及租户图纸审核及沟通", "接待室、汇报厅施工图绘制", "甲方审图意见沟通及调整", "算量及整理清单组价报价（8.5+7.5+8）小时"
+Sample Values: 
 
-stage (text, NULL): Represents the stage of the project when the employee is working on it.
 
-Sample Values: "2. 设计阶段", "5. 售后阶段", null, "3. 施工阶段"
+232. Team_assignment Table
 
-is_standardized (tinyint(1), NULL, Default: 1): Indicates if the work hour entry is standardized according to predefined metrics (0: Not standardized, 1: Standardized).
+Description: No description available.
 
-Sample Values: 1
+Columns:
 
-project_id (char(36), NULL, Foreign Key referencing project.uuid): Foreign key referencing the project.
+  uuid (char(36), Primary Key, NOT NULL): 
 
-Sample Values: "50efeaed-a8a8-11ef-b88d-30c9abb7563e", "50df625a-a8a8-11ef-b88d-30c9abb7563e", "f27659ca-b454-11ef-81ce-30c9abb7563e", null, "50e9c62d-a8a8-11ef-b88d-30c9abb7563e", "f314c780-b454-11ef-81ce-30c9abb7563e", "f28dc51c-b454-11ef-81ce-30c9abb7563e", "f29142ef-b454-11ef-81ce-30c9abb7563e", "f318a5bb-b454-11ef-81ce-30c9abb7563e", "f1f27d5f-b454-11ef-81ce-30c9abb7563e"
+Sample Values: abe76d8c-bb85-11ef-9e20-30c9abb7563e, a8714c4f-bb85-11ef-9e20-30c9abb7563e, a8ec8770-bb85-11ef-9e20-30c9abb7563e, a8dbbd8f-bb85-11ef-9e20-30c9abb7563e, abdb25ce-bb85-11ef-9e20-30c9abb7563e
 
-employee_id (char(36), NULL, Foreign Key referencing employee.uuid): Foreign key referencing the employee who logged the hours.
+  team_id (char(36), ): 
 
-Sample Values: "6d6ac420-a6f0-11ef-b88d-30c9abb7563e", null, "6d660ff0-a6f0-11ef-b88d-30c9abb7563e", "6d678c74-a6f0-11ef-b88d-30c9abb7563e", "6d683bd4-a6f0-11ef-b88d-30c9abb7563e", "6d6887cc-a6f0-11ef-b88d-30c9abb7563e", "6d6727f3-a6f0-11ef-b88d-30c9abb7563e", "6d6a7d14-a6f0-11ef-b88d-30c9abb7563e"
+Sample Values: 1474c1b0-831e-4ef7-8f9c-ffc9e66c8b22, 16060838-3299-4487-bf49-9b5ed27b8d18, 23a335c8-a1d3-439a-8bb6-d70cd82abb22, 40bb570e-ed7f-4f1f-8674-beeeae4fa24a, 4325f609-a865-11ef-b88d-30c9abb7563e
 
-hour (decimal(10,2), NULL): The number of hours worked.
+  employee_id (char(36), ): 
 
-Sample Values: 1.0, 19.0, 1.5, 16.0, 13.0, 1.0, 9.0, 19.75, 3.0, 24.0
+Sample Values: 0ac49b75-a8b3-11ef-b88d-30c9abb7563e, 6d642ac1-a6f0-11ef-b88d-30c9abb7563e, 6d646397-a6f0-11ef-b88d-30c9abb7563e, 6d648745-a6f0-11ef-b88d-30c9abb7563e, 6d64aa1b-a6f0-11ef-b88d-30c9abb7563e
 
-start_date (date, NULL): The start date of each work hour log.
+Foreign Keys:
+  team_id referencing team.uuid
+  employee_id referencing employee.uuid
 
-Sample Values: "2024-09-09", "2024-07-29", "2024-09-16", "2024-09-23", "2024-08-26"
 
-end_date (date, NULL): The end date of each work hour log.
 
-Sample Values: "2024-09-15", "2024-08-04", "2024-09-22", "2024-09-29", "2024-09-01"
+
+285. Work_hour Table
+
+Description: No description available.
+
+Columns:
+
+  uuid (char(36), Primary Key, NOT NULL): 
+
+Sample Values: 0839f42b-7253-47c8-8eeb-efd1a91fe283, 33dfdde9-adf4-4826-bba9-4dd3da80ca4c, 61aa1b2b-5c17-4982-8850-e03e360190f3, 6c0ca8d0-813d-409f-975f-c6f5ed48627c, e1182b8e-bbfd-46b3-b369-984bcd0e81c1
+
+  is_reversed (tinyint(1), Default: 0): 
+
+Sample Values: 0, 0, 0, 0, 0
+
+  task_description (text, ): 
+
+Sample Values: Plane scheme, concept plan, 施工图深化, WTL技术支持, Project bidding stage 1. Two parts bid quotes are organized, including internal communication, 施工配合
+
+  stage (text, ): 
+
+Sample Values: 2. Design stage, , , 1. Bidding stage, 4. The completion stage
+
+  is_standardized (tinyint(1), Default: 1): 
+
+Sample Values: 1, 1, 1, 1, 1
+
+  project_id (char(36), ): 
+
+Sample Values: 015c3f2a-c7f6-42f3-b5c8-a88e8288948c, 064b75a3-54c1-4695-90ea-065f0697bb2a, 064b75a3-54c1-4695-90ea-065f0697bb2a, 064b75a3-54c1-4695-90ea-065f0697bb2a, 064b75a3-54c1-4695-90ea-065f0697bb2a
+
+  employee_id (char(36), ): 
+
+Sample Values: 0ac49b75-a8b3-11ef-b88d-30c9abb7563e, 0ac49b75-a8b3-11ef-b88d-30c9abb7563e, 0ac49b75-a8b3-11ef-b88d-30c9abb7563e, 0ac49b75-a8b3-11ef-b88d-30c9abb7563e, 0ac49b75-a8b3-11ef-b88d-30c9abb7563e
+
+  hour (decimal(10,2), ): 
+
+Sample Values: 21.33, 4.67, 3.50, 4.00, 5.00
+
+  start_date (date, ): 
+
+Sample Values: 2024-11-11, 2024-08-19, 2024-08-05, 2024-09-16, 2024-10-07
+
+  end_date (date, ): 
+
+Sample Values: 2024-11-17, 2024-08-25, 2024-08-11, 2024-09-22, 2024-10-13
+
+Foreign Keys:
+  project_id referencing project.uuid
+  employee_id referencing employee.uuid
 
 Relationships:
 
 project table has a foreign key client_id referencing client.uuid.
-
 project table has a foreign key team_id referencing team.uuid.
-
 team_assignment table has a foreign key team_id referencing team.uuid.
-
 team_assignment table has a foreign key employee_id referencing employee.uuid.
-
 users table has a foreign key employee_id referencing employee.uuid.
-
 work_hour table has a foreign key project_id referencing project.uuid.
-
 work_hour table has a foreign key employee_id referencing employee.uuid.
 
 Notes:
@@ -415,6 +424,7 @@ The uuid columns are used as primary keys in most tables, ensuring unique identi
 
 This document provides a comprehensive overview of the database schema, sample data, and relationships. Please let me know if you have any further questions or require additional details.
 </database_schema>
+
 
 **************************
 【Question】

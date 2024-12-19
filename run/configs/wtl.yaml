@@ -27,7 +27,7 @@ team_agents:
           temperature: 0.0
         parser_name: 'query_enhancement'
       query_enhancement:
-        template_name: 'query_enhancement_wtl'
+        template_name: 'query_enhancement'
         engine_config:
           engine_name: 'gemini-2.0-flash-exp'
           temperature: 0.0
@@ -38,13 +38,13 @@ team_agents:
     tools:
       generate_candidate:
         generator_configs:
-          - template_name: 'mysql_wtl'
+          - template_name: 'mooc'
             engine_config:
               engine_name: 'claude-3-5-sonnet-20241022'
               temperature: 0.0
             parser_name: 'generate_candidate_gemini_markdown_cot'
             sampling_count: 1
-          - template_name: 'mysql_wtl'
+          - template_name: 'mooc'
             engine_config:
               engine_name: 'claude-3-5-sonnet-20241022'
               temperature: 0.0
