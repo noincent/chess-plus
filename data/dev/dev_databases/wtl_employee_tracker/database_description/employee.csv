@@ -1,0 +1,8 @@
+﻿original_column_name,column_name,column_description,data_format,value_description
+uuid,unique_id,"Unique identifier for each employee, stored as a 36-character string, serves as the primary key of this table, cannot be Null.",char(36),Unique alphanumeric strings.
+name,employee_name,"Employee's name, cannot be Null.",varchar(255),"Combination of Chinese, English, or other characters."
+department,department_name,The department the employee belongs to.,varchar(255),"Describes the organizational division (Departments includ: 战略内审中心, 财务管理中心, 人力资源中心, 业务拓展部, 设计管理部, 工层营造部, 售后服务组, 软通组, 采集购买部, 预算成本部)."
+alias,employee_alias,Employee's alias or alternative name.,varchar(255),"Optional alias, could be a nickname or simplified name."
+position,job_position,The employee's job title or position.,text,"Specific titles such as AI Engineer, 出纳, HRBP, etc."
+subdepartment,sub-department,Subdivision within the department (if applicable).,varchar(255),"Optional, indicates further categorization of a department (e.g. 方案设计1组, 装饰深化组, 机电组, etc.)."
+salary,salary,salary amount of each employee,INTEGER,salary amount of each employee

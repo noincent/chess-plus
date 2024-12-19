@@ -1,0 +1,12 @@
+﻿original_column_name,column_name,column_description,data_format,value_description
+uuid,uuid,"Unique identifier for each project, serves as primary key of this table, cannot be NULL.",TEXT,Universally unique identifier (UUID) used to distinguish each project record.
+name,name,The name or title of the project. Cannot be NULL,TEXT,Example: 宝马汽车2024-2026年年框设计项目. Represents the project name.
+team_id,team_id,Foreign key referencing the uuid of the team table. Can be NULL,TEXT,Links the project to the team responsible for it. NULL if no team is assigned.
+address,address,The location or address where the project is being executed.,TEXT,"Example: 全国, 京城大厦."
+type,type,The category or type of the project.,TEXT,Optional; defines project classification.
+area,area,The total area of the project site.,float,Example: 200.0. Represents the area in square meters or other units.
+sign_date,sign_date,The date when the project was signed or initiated.,date,Format: MM/DD/YYYY.
+expected_completion_date,expected_completion_date,The projected completion date for the project.,date,Format: MM/DD/YYYY.
+revenue,revenue,The total expected revenue from the project.,"decimal(15,2)",Example: 6800000.00. Represents revenue in a specific currency.
+revenue_note,revenue_note,Additional notes or remarks regarding the project revenue.,TEXT,Optional; may provide detailed explanations or references for revenue calculations.
+client_id,client_id,Foreign key referencing the uuid of the client table. Can be NULL.,TEXT,Links the project to the client. NULL if no client is assigned.

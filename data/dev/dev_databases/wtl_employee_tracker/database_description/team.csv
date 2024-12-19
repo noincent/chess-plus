@@ -1,0 +1,4 @@
+original_column_name,column_name,column_description,data_format,value_description
+uuid,uuid,"Unique identifier for each team, serves as primary key of this table, cannot be NULL.",TEXT,Universally unique identifier (UUID) used to distinguish each team.
+name,team_name,The name or code of the team.,TEXT,"Example: CANAAN24004-BJ08, GS111, GS19037-BJ04, ISS24139-WH08. Represents team names or identifiers."
+description,description,A description providing additional details about the team (if available).,TEXT,"Free-text field to describe the team, optional and nullable."

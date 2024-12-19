@@ -480,7 +480,7 @@ Repeating the question and evidence, and generating the SQL with Recursive Divid
 
     * **Sub-question 2:** Match employee and project names
         * **Analysis:** Must handle both Chinese and English variations for employee
-        * **Pseudo SQL:** (name LIKE '%丽娜%' OR alias LIKE '%Lina%') AND (project.name LIKE '%宣传销%')
+        * **Pseudo SQL:** (name LIKE '%Lina%') AND (project.name LIKE '%宣传销%')
 
 **2. Assembling SQL:**
 
@@ -497,7 +497,7 @@ WITH project_dates AS (
     INNER JOIN employee T2 ON T1.employee_id = T2.uuid
     INNER JOIN project T3 ON T1.project_id = T3.uuid
     WHERE 
-        (T2.name LIKE '%丽娜%' OR T2.alias LIKE '%Lina%')
+        (T2.name LIKE '%Lina%')
         AND (T3.name LIKE '%宣传销%')
     GROUP BY project_id, employee_id
 )
@@ -515,7 +515,7 @@ FROM employee T1
 INNER JOIN project T2 ON T2.name LIKE '%宣传销%'
 INNER JOIN project_dates pd ON pd.employee_id = T1.uuid
 WHERE 
-    (T1.name LIKE '%丽娜%' OR T1.alias LIKE '%Lina%')
+    (T1.name LIKE '%Lina%')
 </FINAL_ANSWER>
 
 ======= Example 3: Project Labor Cost Calculation =======

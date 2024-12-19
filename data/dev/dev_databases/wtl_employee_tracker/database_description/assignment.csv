@@ -1,0 +1,4 @@
+original_column_name,column_name,column_description,data_format,value_description
+uuid,uuid,"Unique identifier for each team assignment, serves as primary key of this table, cannot be NULL.",TEXT,Universally unique identifier (UUID) used to distinguish each record.
+team_id,team_id,"Foreign key referencing the uuid of the team table, linking this assignment to a specific team.",TEXT,References a team by its unique identifier from the team table.
+employee_id,employee_id,"Foreign key referencing the uuid of the employee table, linking this assignment to an employee. There can be multiple employee_id assigned to one team_id.",TEXT,References an employee by their unique identifier from the employee table.

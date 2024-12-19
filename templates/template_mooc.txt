@@ -442,88 +442,13 @@ This document provides a comprehensive overview of the database schema, sample d
 ======= Example 1: Employee'sLabor Cost Calculation =======
 **************************
 【Question】
-Calculate Lina's labor cost for the "宣传销" project
+what is labor cost for any project
 
 **************************
 【Answer】
 Repeating the question and evidence, and generating the SQL with Recursive Divide-and-Conquer.
 
-**1. Divide and Conquer:**
 
-* **Main Question:** Calculate labor cost for Lina on 宣传销 project
-    * **Analysis:** Need to get date ranges and use CalculateLaborCost function
-    * **Pseudo SQL:** WITH date_cte AS (get_date_ranges) SELECT employee_info, CalculateLaborCost(dates, ids)
-
-    * **Sub-question 1:** Get project date ranges
-        * **Analysis:** Need min/max dates per employee-project combination
-        * **Pseudo SQL:** SELECT MIN(start_date), MAX(end_date) FROM work_hour GROUP BY project_id, employee_id
-
-    * **Sub-question 2:** Match employee and project names
-        * **Analysis:** Must handle both Chinese and English variations for employee
-        * **Pseudo SQL:** (name LIKE '%Lina%') AND (project.name LIKE '%宣传销%')
-
-**2. Assembling SQL:**
-
-**Final Optimized SQL Query:**
-
-<FINAL_ANSWER>
-WITH project_dates AS (
-    SELECT 
-        MIN(start_date) AS min_date,
-        MAX(end_date) AS max_date,
-        project_id,
-        employee_id
-    FROM work_hour T1
-    INNER JOIN employee T2 ON T1.employee_id = T2.uuid
-    INNER JOIN project T3 ON T1.project_id = T3.uuid
-    WHERE 
-        (T2.name LIKE '%Lina%')
-        AND (T3.name LIKE '%宣传销%')
-    GROUP BY project_id, employee_id
-)
-SELECT 
-    T1.name AS employee_name,
-    T1.alias,
-    T2.name AS project_name,
-    CalculateLaborCost(
-        pd.min_date,
-        pd.max_date,
-        pd.project_id,
-        pd.employee_id
-    ) AS labor_cost
-FROM employee T1
-INNER JOIN project T2 ON T2.name LIKE '%宣传销%'
-INNER JOIN project_dates pd ON pd.employee_id = T1.uuid
-WHERE 
-    (T1.name LIKE '%Lina%')
-</FINAL_ANSWER>
-
-======= Example 3: Project Labor Cost Calculation =======
-**************************
-【Question】
-Find the project with the highest labor cost and its associated team.
-
-**************************
-【Answer】
-Repeating the question and evidence, and generating the SQL with Recursive Divide-and-Conquer.
-
-**1. Divide and Conquer:**
-
-* **Main Question:** Find project with highest total labor cost
-    * **Analysis:** Need to calculate labor costs for all projects and find maximum
-    * **Pseudo SQL:** WITH dates_cte, costs_cte SELECT MAX(total_cost)
-
-    * **Sub-question 1:** Get effective project dates
-        * **Analysis:** Need to handle both work hours and project dates
-        * **Pseudo SQL:** SELECT COALESCE(MIN(start_date), sign_date), COALESCE(MAX(end_date), expected_completion_date)
-
-    * **Sub-question 2:** Calculate total labor cost per project
-        * **Analysis:** Must avoid duplicate employee counting
-        * **Pseudo SQL:** SELECT DISTINCT employee_id, SUM(labor_cost) GROUP BY project
-
-**2. Assembling SQL:**
-
-**Final Optimized SQL Query:**
 
 <FINAL_ANSWER>
 WITH project_dates AS (
@@ -563,12 +488,61 @@ SELECT
     team_name,
     total_labor_cost
 FROM project_labor_costs
-WHERE total_labor_cost = (
-    SELECT MAX(total_labor_cost)
-    FROM project_labor_costs
+ORDER BY total_labor_cost DESC;
+</FINAL_ANSWER>
+
+======= Example 3: Project Labor Cost Calculation =======
+**************************
+【Question】
+what is the total labor cost for  project with the name "Sanchez Inc"
+**************************
+【Answer】
+Repeating the question and evidence, and generating the SQL with Recursive Divide-and-Conquer.
+
+
+
+**Final Optimized SQL Query:**
+
+<FINAL_ANSWER>
+WITH project_dates AS (
+    SELECT 
+        p.uuid AS project_id,
+        p.name AS project_name,
+        t.name AS team_name,
+        COALESCE(MIN(w.start_date), p.sign_date) AS effective_start_date,
+        COALESCE(MAX(w.end_date), p.expected_completion_date) AS effective_end_date
+    FROM project p
+    LEFT JOIN team t ON p.team_id = t.uuid
+    LEFT JOIN work_hour w ON p.uuid = w.project_id
+    WHERE (p.name LIKE '%Sanchez Inc%' OR t.name LIKE '%Sanchez Inc%')
+    GROUP BY p.uuid, p.name, t.name
+), project_labor_costs AS (
+    SELECT 
+        pd.project_id,
+        pd.project_name,
+        pd.team_name,
+        SUM(CalculateLaborCost(
+            pd.effective_start_date,
+            pd.effective_end_date,
+            pd.project_id,
+            w.employee_id
+        )) AS total_labor_cost
+    FROM project_dates pd
+    INNER JOIN (
+        SELECT DISTINCT project_id, employee_id 
+        FROM work_hour
+    ) w ON pd.project_id = w.project_id
+    WHERE 
+        pd.effective_start_date IS NOT NULL 
+        AND pd.effective_end_date IS NOT NULL
+    GROUP BY pd.project_id, pd.project_name, pd.team_name
 )
-ORDER BY total_labor_cost DESC
-LIMIT 1;
+SELECT 
+    project_name,
+    team_name,
+    ROUND(total_labor_cost, 2) AS total_labor_cost
+FROM project_labor_costs
+ORDER BY total_labor_cost DESC;
 </FINAL_ANSWER>
 
 **************************

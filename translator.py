@@ -26,17 +26,21 @@ class SQLTranslator:
         return log_file
 
     def create_prompt(self, sqlite_query: str) -> str:
-        return f"""Translate this SQLite query to MySQL syntax. Only respond with the translated query, no explanations:
+        return f"""
+Translate the following SQLite query into MySQL syntax. Respond with only the translated query and nothing else. Do not include any explanations or concatenated strings in the output. Do NOT include any comments in the output. Do NOT use \n or '+' to concatenate strings in the output.
 
 {sqlite_query}
 
-Remember these translation rules:
-- AUTOINCREMENT becomes AUTO_INCREMENT
-- || string concatenation becomes CONCAT()
-- Boolean true/false become 1/0
-- LIMIT x OFFSET y becomes LIMIT y, x
-- datetime('now') becomes NOW()
-- Handle any other syntax differences appropriately"""
+Key translation rules to follow:
+- Replace AUTOINCREMENT with AUTO_INCREMENT.
+- Replace || string concatenation with CONCAT().
+- Replace Boolean true/false with 1/0.
+- Convert LIMIT x OFFSET y to LIMIT y, x.
+- Replace datetime('now') with NOW().
+- Adapt any other SQLite-specific syntax to its MySQL equivalent as necessary.
+"""
+
+
 
     def validate_query(self, query: str) -> Optional[str]:
         """Basic validation to ensure query is well-formed and remove comments"""

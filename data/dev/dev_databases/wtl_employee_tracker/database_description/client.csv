@@ -1,0 +1,8 @@
+﻿original_column_name,column_name,column_description,data_format,value_description
+uuid,uuid,"Unique identifier for each client, serves as primary key of this table, cannot be NULL.",TEXT,Universally unique identifier (UUID) used to distinguish each client record.
+name,name,"The name or title of the client, often representing the primary contact person.",TEXT,"Example: 希小姐, 刘娇, 熊倩."
+source,source,"The source or classification of the client relationship (e.g., new client, old client).",TEXT,"Example: 老客户 (Old Client), 新客户 (New Client)."
+company,company,The name of the company or organization the client is associated with.,TEXT,"Example: 港大思培（北京）咨询有限公司, Beijing Mercedes-Benz Sales Service Co., Ltd."
+contact,contact,"Contact information, such as a phone number.",TEXT,"Example: 85185526-8006, 18601133126."
+background,background,The background or type of the client’s organization.,TEXT,"Example: 外资 (Foreign Capital), 国企 (State-Owned Enterprise), 世界五百强 (Fortune 500)."
+description,description,Additional notes or details about the client relationship.,TEXT,"Example: 老客户 (Old Client), 老客户二次经营 (Old Client with Repeat Business)."
