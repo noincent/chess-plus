@@ -18,7 +18,6 @@ share/
 .pytest_cache/
 .coverage
 htmlcov/
-*.sqlite
 *.db
 .idea/
 .vscode/
