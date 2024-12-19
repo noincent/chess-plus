@@ -44,7 +44,7 @@ The enhanced version introduces interactive chat functionality through new speci
 3. **Configure environment variables**:
     - Copy `dotenv_copy` to `.env`:
       ```bash
-      cp .env.template .env
+      cp dotenv_copy .env
       ```
     - Edit `.env` and fill in your API keys and configuration
 
