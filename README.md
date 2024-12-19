@@ -31,7 +31,7 @@ The enhanced version introduces interactive chat functionality through new speci
 1. **Clone the repository**:
     ```bash
     git clone https://github.com/noincent/chess-plus.git
-    cd chess-plus
+    cd chess-plus-main
     ```
 
 2. **Set up Python virtual environment** (Python 3.8+ recommended):
