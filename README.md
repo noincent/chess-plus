@@ -58,7 +58,6 @@ CHESS/
 ├── src/           # Core source code
 ├── run/           # Configuration files
 ├── templates/     # SQL templates
-├── data/          # Data files and databases
 └── logs/          # Log files
 ```
 
