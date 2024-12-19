@@ -42,7 +42,7 @@ The enhanced version introduces interactive chat functionality through new speci
     ```
 
 3. **Configure environment variables**:
-    - Copy `.env.template` to `.env`:
+    - Copy `dotenv_copy` to `.env`:
       ```bash
       cp .env.template .env
       ```
