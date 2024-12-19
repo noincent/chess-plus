@@ -1,12 +1,16 @@
-DB_ROOT_PATH="./data/dev" # this directory should be the parent of test_databases
+# Configuration for CHESS
 DATA_MODE="dev"
 DATA_PATH="./data/dev/dev.json"
 DB_ROOT_DIRECTORY="./data/dev/dev_databases"
 DATA_TABLES_PATH="./data/dev/dev_tables.json"
+INDEX_SERVER_HOST='localhost'
+INDEX_SERVER_PORT=12345
 
-
-OPENAI_API_KEY=
-GCP_PROJECT=''
-GCP_REGION='us-central1'
-GCP_CREDENTIALS=''
-GOOGLE_CLOUD_PROJECT=''
+# API Keys and Cloud Configuration
+OPENAI_API_KEY=your_openai_api_key
+GCP_PROJECT=your_gcp_project
+GCP_REGION=us-central1
+GCP_CREDENTIALS=path_to_credentials.json
+GOOGLE_CLOUD_PROJECT=your_gcp_project
+ANTHROPIC_API_KEY=your_anthropic_api_key
+GOOGLE_API_KEY=your_google_api_key

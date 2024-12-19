@@ -26,84 +26,47 @@ The enhanced version introduces interactive chat functionality through new speci
 - **Result Formatting**: Clean presentation of query results
 - **Context-Aware Responses**: Improved understanding of follow-up questions
 
-## Setting up the Environment
+## Installation and Setup
 
 1. **Clone the repository**:
     ```bash
-    git clone https://github.com/yourusername/CHESS.git
-    cd CHESS
+    git clone https://github.com/noincent/chess-plus.git
+    cd chess-plus
     ```
 
-2. **Create a `.env` file** in the root directory with your configuration:
+2. **Set up Python virtual environment** (Python 3.8+ recommended):
     ```bash
-    DATA_MODE="dev"
-    DATA_PATH="./data/dev/dev.json"
-    DB_ROOT_DIRECTORY="./data/dev/dev_databases"
-    DATA_TABLES_PATH="./data/dev/dev_tables.json"
-    INDEX_SERVER_HOST='localhost'
-    INDEX_SERVER_PORT=12345
-
-    OPENAI_API_KEY=
-    GCP_PROJECT=''
-    GCP_REGION='us-central1'
-    GCP_CREDENTIALS=''
-    GOOGLE_CLOUD_PROJECT=''
-    ```
-
-3. **Install required packages**:
-    ```bash
+    python3 -m venv venv
+    source venv/bin/activate  # On Windows: .\venv\Scripts\activate
     pip install -r requirements.txt
     ```
 
-## Preprocessing
+3. **Configure environment variables**:
+    - Copy `.env.template` to `.env`:
+      ```bash
+      cp .env.template .env
+      ```
+    - Edit `.env` and fill in your API keys and configuration
 
-To retrieve database catalogs and find the most similar database values to a question, preprocess the databases:
 
-1. **Run the preprocessing script**:
-    ```bash
-    sh run/run_preprocess.sh
-    ```
 
-    This will create the minhash, LSH, and vector databases for each of the databases in the specified directory.
 
-## Running the Code
 
-After preprocessing the databases, generate SQL queries for the BIRD dataset by choosing a configuration:
+## Project Structure
+```
+CHESS/
+├── src/           # Core source code
+├── run/           # Configuration files
+├── templates/     # SQL templates
+├── data/          # Data files and databases
+└── logs/          # Log files
+```
 
-1. **Run the main script**:
-    ```bash
-    sh run/run_main_ir_cg_ut.sh
-    ```
-
-    or
-
-    ```bash
-    sh run/run_main_ir_ss_ch.sh
-    ```
-
-## Sub-sampled Development Set (SDS)
-
-The sub-sampled development set (SDS) is a subset of the BIRD dataset with 10% of samples from each database. It is used for ablation studies and is available in `sub_sampled_bird_dev_set.json`.
 
 ## Supporting Other LLMs
 
 To use your own LLM, modify the `get_llm_chain(engine, temperature, base_uri=None)` function and add your LLM in `run/langchain_utils.py`.
 
-## Using Chat Features
-
-To interact with the system using chat:
-
-1. **Start a chat session**:
-    ```bash
-    python interface.py --mode chat
-    ```
-
-2. **Ask questions naturally**, for example:
-    - "Show me all employees in the Sales department"
-    - "How many of them were hired last year?"
-    - "What's the average salary?"
-
-The system will maintain context across questions and provide formatted responses.
 
 ## Web Interface Integration
 
@@ -275,6 +238,23 @@ The API returns standard HTTP status codes:
 - `400`: Bad Request (invalid input or expired session)
 - `404`: Session not found (when ending session)
 - `500`: Internal Server Error
+
+## Troubleshooting
+
+1. **Missing API Keys**: Ensure all required API keys are set in `.env`
+2. **Database Connection**: Check if database files exist in the correct location
+3. **Port Conflicts**: If port 8010 is in use, modify the port in the startup command
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## License
+
+See [LICENSE](LICENSE) file for details.
 
 ## Attribution
 

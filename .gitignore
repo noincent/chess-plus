@@ -16,3 +16,10 @@ lib/
 lib64
 pyvenv.cfg
 share/
+.pytest_cache/
+.coverage
+htmlcov/
+*.sqlite
+*.db
+.idea/
+.vscode/
